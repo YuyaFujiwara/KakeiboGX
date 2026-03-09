@@ -21,7 +21,24 @@
         android:id="@+id/navigation_report"
         android:name="com.example.myapplication.ui.report.ReportFragment"
         android:label="レポート"
-        tools:layout="@layout/fragment_report" />
+        tools:layout="@layout/fragment_report">
+        <action
+            android:id="@+id/action_report_to_category_report"
+            app:destination="@id/navigation_category_report" />
+    </fragment>
+    
+    <fragment
+        android:id="@+id/navigation_category_report"
+        android:name="com.example.myapplication.ui.report.CategoryReportFragment"
+        android:label="カテゴリ別レポート"
+        tools:layout="@layout/fragment_category_report">
+        <argument
+            android:name="categoryId"
+            app:argType="integer" />
+        <argument
+            android:name="categoryName"
+            app:argType="string" />
+    </fragment>
         
     <fragment
         android:id="@+id/navigation_settings"

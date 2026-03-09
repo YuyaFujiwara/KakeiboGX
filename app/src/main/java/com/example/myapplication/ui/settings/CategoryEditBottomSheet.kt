@@ -40,20 +40,20 @@ class CategoryEditBottomSheet(
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        setupColorPalette()
-
         if (existingCategory != null) {
+            selectedColorCode = existingCategory.colorCode
             binding.etName.setText(existingCategory.name)
             if (existingCategory.type == TransactionType.INCOME) {
                 binding.rbIncome.isChecked = true
             } else {
                 binding.rbExpense.isChecked = true
             }
-            selectedColorCode = existingCategory.colorCode
             binding.btnDelete.visibility = View.VISIBLE
         } else {
             binding.btnDelete.visibility = View.GONE
         }
+
+        setupColorPalette()
 
         binding.btnSave.setOnClickListener {
             val name = binding.etName.text.toString().trim()
@@ -90,7 +90,12 @@ class CategoryEditBottomSheet(
         val size = (40 * resources.displayMetrics.density).toInt()
         val margin = (4 * resources.displayMetrics.density).toInt()
 
-        presetColors.forEach { colorHex ->
+        val colorsToDisplay = presetColors.toMutableList()
+        if (selectedColorCode.isNotEmpty() && !colorsToDisplay.contains(selectedColorCode)) {
+            colorsToDisplay.add(0, selectedColorCode)
+        }
+
+        colorsToDisplay.forEach { colorHex ->
             val colorView = ImageView(requireContext()).apply {
                 layoutParams = ViewGroup.MarginLayoutParams(size, size).apply {
                     setMargins(margin, margin, margin, margin)

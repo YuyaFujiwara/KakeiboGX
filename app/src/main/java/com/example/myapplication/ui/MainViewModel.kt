@@ -103,19 +103,56 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         try {
             context.contentResolver.openInputStream(uri)?.use { input ->
                 val reader = java.io.BufferedReader(java.io.InputStreamReader(input))
-                reader.readLine() // ヘッダーをスキップ
+                val headerLine = reader.readLine() // ヘッダー
+                val isSekkeiFormat = headerLine?.startsWith("inputDate", ignoreCase = true) == true
+                
+                val currentCategoriesMap = allCategories.value.associateBy { it.name }.toMutableMap()
+                
                 var line: String?
                 while (reader.readLine().also { line = it } != null) {
-                    val tokens = line!!.split(",")
+                    // split with regex to handle quotes correctly: match commas not inside quotes (simple approximation or just remove surrounding quotes)
+                    val tokens = line!!.split(",(?=([^\"]*\"[^\"]*\")*[^\"]*$)".toRegex()).map { it.trim().removeSurrounding("\"") }
                     if (tokens.size >= 5) {
                         try {
-                            val d = DailyData(
-                                date = LocalDate.parse(tokens[0]),
-                                categoryId = tokens[1].toInt(),
-                                type = TransactionType.valueOf(tokens[2]),
-                                amount = tokens[3].toLong(),
-                                memo = tokens[4]
-                            )
+                            val d = if (isSekkeiFormat) {
+                                // sekkei format: inputDate,amount,memo,type,categoryId...
+                                val parts = tokens[0].split("/")
+                                val date = if (parts.size == 3) {
+                                    LocalDate.of(parts[0].toInt(), parts[1].toInt(), parts[2].toInt())
+                                } else {
+                                    LocalDate.parse(tokens[0])
+                                }
+                                val amount = tokens[1].toLong()
+                                val memo = tokens[2]
+                                val type = if (tokens[3].equals("Income", ignoreCase = true)) TransactionType.INCOME else TransactionType.EXPENSE
+                                val categoryName = tokens[5]
+                                
+                                var category = currentCategoriesMap[categoryName]
+                                val categoryId = if (category != null) {
+                                    category.id
+                                } else {
+                                    val newCategory = Category(
+                                        name = categoryName,
+                                        type = type,
+                                        colorCode = tokens[7],
+                                        iconName = "ic_category_default",
+                                        displayOrder = tokens[8].toIntOrNull() ?: 1
+                                    )
+                                    val newId = repository.insertCategory(newCategory).toInt()
+                                    currentCategoriesMap[categoryName] = newCategory.copy(id = newId)
+                                    newId
+                                }
+                                DailyData(date = date, amount = amount, memo = memo, type = type, categoryId = categoryId)
+                            } else {
+                                // my export format: Date,CategoryId,Type,Amount,Memo
+                                DailyData(
+                                    date = LocalDate.parse(tokens[0]),
+                                    categoryId = tokens[1].toInt(),
+                                    type = TransactionType.valueOf(tokens[2]),
+                                    amount = tokens[3].toLong(),
+                                    memo = tokens[4]
+                                )
+                            }
                             repository.insertDailyData(d)
                         } catch (e: Exception) {
                             // パースエラーの行はスキップ

@@ -19,11 +19,15 @@ import com.example.myapplication.ui.MainViewModel
 import com.github.mikephil.charting.data.PieData
 import com.github.mikephil.charting.data.PieDataSet
 import com.github.mikephil.charting.data.PieEntry
+import com.github.mikephil.charting.data.Entry
+import com.github.mikephil.charting.highlight.Highlight
+import com.github.mikephil.charting.listener.OnChartValueSelectedListener
 import com.google.android.material.tabs.TabLayout
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
+import androidx.navigation.fragment.findNavController
 
 class ReportFragment : Fragment() {
 
@@ -38,6 +42,7 @@ class ReportFragment : Fragment() {
     
     // キャッシュ用データ
     private var currentCategories: List<Category> = emptyList()
+    private var currentTotalAmount: Float = 0f
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -57,7 +62,11 @@ class ReportFragment : Fragment() {
 
     private fun setupUI() {
         reportAdapter = CategoryReportAdapter { item ->
-            Toast.makeText(requireContext(), "${item.categoryName}の月間レポート(未実装)", Toast.LENGTH_SHORT).show()
+            val bundle = android.os.Bundle().apply {
+                putInt("categoryId", item.categoryId)
+                putString("categoryName", item.categoryName)
+            }
+            findNavController().navigate(com.example.myapplication.R.id.action_report_to_category_report, bundle)
         }
         binding.rvCategoryReport.adapter = reportAdapter
 
@@ -101,6 +110,27 @@ class ReportFragment : Fragment() {
             isRotationEnabled = false
             isHighlightPerTapEnabled = true
             legend.isEnabled = false // 凡例は自作のリストで表示するので消す
+            
+            setDrawEntryLabels(true)
+            setEntryLabelColor(Color.BLACK)
+            setEntryLabelTextSize(12f)
+            extraTopOffset = 20f
+            extraBottomOffset = 20f
+            extraLeftOffset = 20f
+            extraRightOffset = 20f
+
+            setOnChartValueSelectedListener(object : OnChartValueSelectedListener {
+                override fun onValueSelected(e: Entry?, h: Highlight?) {
+                    val pieEntry = e as? PieEntry ?: return
+                    val amount = pieEntry.value.toLong()
+                    val label = pieEntry.label ?: ""
+                    val percent = if (currentTotalAmount > 0) pieEntry.value / currentTotalAmount * 100 else 0f
+                    centerText = "$label\n¥%,d\n%.1f%%".format(amount, percent)
+                }
+                override fun onNothingSelected() {
+                    centerText = "¥%,d".format(currentTotalAmount.toLong())
+                }
+            })
         }
     }
 
@@ -180,12 +210,21 @@ class ReportFragment : Fragment() {
         val dataSet = PieDataSet(entries, "カテゴリ別")
         dataSet.colors = colors
         dataSet.sliceSpace = 3f
-        dataSet.selectionShift = 5f
+        dataSet.selectionShift = 8f
+
+        dataSet.xValuePosition = PieDataSet.ValuePosition.OUTSIDE_SLICE
+        dataSet.yValuePosition = PieDataSet.ValuePosition.OUTSIDE_SLICE
+        dataSet.valueLinePart1OffsetPercentage = 80f
+        dataSet.valueLinePart1Length = 0.5f
+        dataSet.valueLinePart2Length = 0.5f
+        dataSet.valueLineColor = Color.BLACK
 
         val data = PieData(dataSet)
-        data.setValueTextSize(11f)
-        data.setValueTextColor(Color.WHITE)
+        data.setValueFormatter(com.github.mikephil.charting.formatter.PercentFormatter(binding.pieChart))
+        data.setValueTextSize(14f)
+        data.setValueTextColor(Color.BLACK)
 
+        currentTotalAmount = totalAmount
         binding.pieChart.data = data
         binding.pieChart.centerText = "¥%,d".format(totalAmount.toLong())
         binding.pieChart.invalidate()

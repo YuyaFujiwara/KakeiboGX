@@ -156,7 +156,18 @@ class CalendarFragment : Fragment() {
         val data = viewModel.allDailyData.value.filter {
             !it.date.isBefore(startDate) && !it.date.isAfter(endDate)
         }
-        dailyListAdapter.submitList(data)
+        dailyListAdapter.submitGroupedList(data)
+
+        // 選択した日付のヘッダー位置にスクロール
+        binding.rvDailyList.post {
+            val position = dailyListAdapter.currentList.indexOfFirst {
+                it is DailyListItem.DateHeader && it.date == selectedDate
+            }
+            if (position >= 0) {
+                (binding.rvDailyList.layoutManager as? androidx.recyclerview.widget.LinearLayoutManager)
+                    ?.scrollToPositionWithOffset(position, 0)
+            }
+        }
     }
 
     override fun onDestroyView() {

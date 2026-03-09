@@ -83,7 +83,12 @@ class CalendarAdapter(
         )
         // 画面の高さにあわせて高さを調整
         val lp = binding.root.layoutParams
-        lp.height = parent.measuredHeight / 6 // 最大6週
+        val parentHeight = parent.measuredHeight
+        if (parentHeight > 0) {
+            lp.height = parentHeight / 6 // 最大6週
+        } else {
+            lp.height = (70 * parent.context.resources.displayMetrics.density).toInt() // フォールバック高さ (70dp)
+        }
         binding.root.layoutParams = lp
         return CalendarViewHolder(binding)
     }

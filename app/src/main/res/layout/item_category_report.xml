@@ -12,7 +12,6 @@
         android:id="@+id/iv_cat_icon"
         android:layout_width="40dp"
         android:layout_height="40dp"
-        android:src="@android:drawable/ic_menu_camera"
         android:layout_marginEnd="16dp" />
 
     <TextView

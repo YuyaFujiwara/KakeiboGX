@@ -84,6 +84,10 @@ class InputFragment : Fragment() {
                 // 電卓UIの金額をクリアなど
                 currentAmount = 0L
                 binding.tvAmount.text = "¥0"
+                
+                // 再フィルタリングしてリストを更新
+                val filtered = viewModel.allCategories.value.filter { it.type == currentType }
+                categoryAdapter.submitList(filtered)
             }
             override fun onTabUnselected(tab: TabLayout.Tab?) {}
             override fun onTabReselected(tab: TabLayout.Tab?) {}
