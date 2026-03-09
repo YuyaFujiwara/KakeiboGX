@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/mobile_navigation"
+    app:startDestination="@+id/navigation_input">
+
+    <fragment
+        android:id="@+id/navigation_input"
+        android:name="com.example.myapplication.ui.input.InputFragment"
+        android:label="入力"
+        tools:layout="@layout/fragment_input" />
+
+    <fragment
+        android:id="@+id/navigation_calendar"
+        android:name="com.example.myapplication.ui.calendar.CalendarFragment"
+        android:label="カレンダー"
+        tools:layout="@layout/fragment_calendar" />
+
+    <fragment
+        android:id="@+id/navigation_report"
+        android:name="com.example.myapplication.ui.report.ReportFragment"
+        android:label="レポート"
+        tools:layout="@layout/fragment_report" />
+        
+    <fragment
+        android:id="@+id/navigation_settings"
+        android:name="com.example.myapplication.ui.settings.SettingsFragment"
+        android:label="その他"
+        tools:layout="@layout/fragment_settings">
+        <action
+            android:id="@+id/action_settings_to_quota"
+            app:destination="@id/navigation_quota" />
+        <action
+            android:id="@+id/action_settings_to_fixed_cost"
+            app:destination="@id/navigation_fixed_cost" />
+        <action
+            android:id="@+id/action_settings_to_category_edit"
+            app:destination="@id/navigation_category_edit" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/navigation_quota"
+        android:name="com.example.myapplication.ui.settings.QuotaSettingFragment"
+        android:label="予算(クォータ)設定"
+        tools:layout="@layout/fragment_quota_setting" />
+
+    <fragment
+        android:id="@+id/navigation_fixed_cost"
+        android:name="com.example.myapplication.ui.settings.FixedCostFragment"
+        android:label="固定収支の設定"
+        tools:layout="@layout/fragment_fixed_cost" />
+
+    <fragment
+        android:id="@+id/navigation_category_edit"
+        android:name="com.example.myapplication.ui.settings.CategoryEditFragment"
+        android:label="カテゴリの確認・編集"
+        tools:layout="@layout/fragment_category_edit" />
+
+</navigation>

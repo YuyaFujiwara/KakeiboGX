@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/navigation_input"
+        android:icon="@android:drawable/ic_menu_edit"
+        android:title="入力" />
+    <item
+        android:id="@+id/navigation_calendar"
+        android:icon="@android:drawable/ic_menu_today"
+        android:title="カレンダー" />
+    <item
+        android:id="@+id/navigation_report"
+        android:icon="@android:drawable/ic_menu_sort_by_size"
+        android:title="レポート" />
+    <item
+        android:id="@+id/navigation_settings"
+        android:icon="@android:drawable/ic_menu_preferences"
+        android:title="その他" />
+</menu>
