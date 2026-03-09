@@ -154,6 +154,12 @@ class ReportFragment : Fragment() {
                         updateReportData()
                     }
                 }
+
+                launch {
+                    viewModel.allQuotaSettings.collectLatest {
+                        updateReportData()
+                    }
+                }
             }
         }
     }
@@ -187,7 +193,8 @@ class ReportFragment : Fragment() {
         val reportItems = categoryMap.mapNotNull { (catId, amount) ->
             val category = currentCategories.find { it.id == catId } ?: return@mapNotNull null
             val percent = if (totalAmount > 0) amount / totalAmount else 0f
-            CategoryReportItem(catId, category.name, category.colorCode, amount, percent)
+            val quota = viewModel.allQuotaSettings.value.find { it.categoryId == catId }
+            CategoryReportItem(catId, category.name, category.colorCode, amount, percent, quota?.amount ?: 0L, currentMonth)
         }.sortedByDescending { it.amount }
 
         reportAdapter.submitList(reportItems)

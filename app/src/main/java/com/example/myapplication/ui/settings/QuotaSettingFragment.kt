@@ -47,12 +47,16 @@ class QuotaSettingFragment : Fragment() {
 
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.allCategories.collectLatest { categories ->
+                kotlinx.coroutines.flow.combine(
+                    viewModel.allCategories,
+                    viewModel.allQuotaSettings
+                ) { categories, quotas ->
+                    Pair(categories, quotas)
+                }.collectLatest { (categories, quotas) ->
                     val expenseCategories = categories.filter { it.type == com.example.myapplication.data.entity.TransactionType.EXPENSE }
-                    val currentQuotas = viewModel.allQuotaSettings.value
                     
                     val items = expenseCategories.map { cat ->
-                        val quota = currentQuotas.find { it.categoryId == cat.id }
+                        val quota = quotas.find { it.categoryId == cat.id }
                         QuotaItemVO(
                             categoryId = cat.id,
                             categoryName = cat.name,
