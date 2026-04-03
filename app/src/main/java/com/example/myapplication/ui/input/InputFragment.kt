@@ -15,6 +15,7 @@ import com.example.myapplication.data.entity.DailyData
 import com.example.myapplication.data.entity.TransactionType
 import com.example.myapplication.databinding.FragmentInputBinding
 import com.example.myapplication.ui.MainViewModel
+import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.tabs.TabLayout
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -101,6 +102,37 @@ class InputFragment : Fragment() {
             dialog.show(parentFragmentManager, "CalculatorBottomSheet")
         }
 
+        // プリセットボタン
+        binding.btnPreset.setOnClickListener {
+            val dialog = PresetBottomSheet(
+                currentType = currentType,
+                presets = viewModel.allPresets.value,
+                onPresetSelected = { preset ->
+                    binding.etMemo.setText(preset.memo)
+                    if (preset.amount > 0) {
+                        currentAmount = preset.amount
+                        binding.tvAmount.text = "¥%,d".format(currentAmount)
+                    }
+                    // カテゴリも自動選択
+                    if (preset.categoryId != null) {
+                        val categories = viewModel.allCategories.value.filter { it.type == currentType }
+                        val index = categories.indexOfFirst { it.id == preset.categoryId }
+                        if (index >= 0) {
+                            // カテゴリアダプタのクリックをシミュレート
+                        }
+                    }
+                    viewModel.incrementPresetUsageCount(preset.id)
+                },
+                onPresetAdded = { preset ->
+                    viewModel.insertPreset(preset)
+                },
+                onPresetDeleted = { preset ->
+                    viewModel.deletePreset(preset)
+                }
+            )
+            dialog.show(parentFragmentManager, "PresetBottomSheet")
+        }
+
         categoryAdapter = CategoryAdapter(
             onClick = { category ->
                 // クリック処理(アダプター側で選択状態は管理済み)
@@ -110,6 +142,41 @@ class InputFragment : Fragment() {
             }
         )
         binding.rvCategories.adapter = categoryAdapter
+
+        // ドラッグ＆ドロップ並べ替え
+        val itemTouchHelper = androidx.recyclerview.widget.ItemTouchHelper(
+            object : androidx.recyclerview.widget.ItemTouchHelper.SimpleCallback(
+                androidx.recyclerview.widget.ItemTouchHelper.UP or
+                androidx.recyclerview.widget.ItemTouchHelper.DOWN or
+                androidx.recyclerview.widget.ItemTouchHelper.LEFT or
+                androidx.recyclerview.widget.ItemTouchHelper.RIGHT,
+                0
+            ) {
+                override fun onMove(
+                    recyclerView: RecyclerView,
+                    viewHolder: RecyclerView.ViewHolder,
+                    target: RecyclerView.ViewHolder
+                ): Boolean {
+                    categoryAdapter.moveItem(viewHolder.adapterPosition, target.adapterPosition)
+                    return true
+                }
+
+                override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {}
+
+                override fun clearView(recyclerView: RecyclerView, viewHolder: RecyclerView.ViewHolder) {
+                    super.clearView(recyclerView, viewHolder)
+                    // ドロップ完了時に並び順を保存
+                    viewModel.updateCategoryOrder(categoryAdapter.getOrderedCategories())
+                }
+
+                override fun isLongPressDragEnabled(): Boolean = false // 手動で開始する
+            }
+        )
+        itemTouchHelper.attachToRecyclerView(binding.rvCategories)
+
+        categoryAdapter.onStartDrag = { viewHolder ->
+            itemTouchHelper.startDrag(viewHolder)
+        }
 
         binding.btnSubmit.setOnClickListener {
             val selectedCategoryId = categoryAdapter.getSelectedCategoryId()

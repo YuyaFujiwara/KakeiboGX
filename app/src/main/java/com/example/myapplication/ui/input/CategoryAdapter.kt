@@ -16,6 +16,14 @@ class CategoryAdapter(
 ) : ListAdapter<Category, CategoryAdapter.CategoryViewHolder>(CategoryDiffCallback()) {
 
     private var selectedCategoryId: Int? = null
+    private val mutableItems = mutableListOf<Category>()
+    var onStartDrag: ((RecyclerView.ViewHolder) -> Unit)? = null
+
+    override fun submitList(list: List<Category>?) {
+        mutableItems.clear()
+        mutableItems.addAll(list ?: emptyList())
+        super.submitList(list?.toList())
+    }
 
     inner class CategoryViewHolder(private val binding: ItemCategoryBinding) :
         RecyclerView.ViewHolder(binding.root) {
@@ -58,7 +66,7 @@ class CategoryAdapter(
             }
 
             binding.root.setOnLongClickListener {
-                onLongClick(category)
+                onStartDrag?.invoke(this)
                 true
             }
         }
@@ -83,6 +91,19 @@ class CategoryAdapter(
         if (oldSelected != null) {
             val oldIndex = currentList.indexOfFirst { it.id == oldSelected }
             if (oldIndex != -1) notifyItemChanged(oldIndex)
+        }
+    }
+
+    fun moveItem(from: Int, to: Int) {
+        val list = currentList.toMutableList()
+        val item = list.removeAt(from)
+        list.add(to, item)
+        super.submitList(list)
+    }
+
+    fun getOrderedCategories(): List<Category> {
+        return currentList.mapIndexed { index, category ->
+            category.copy(displayOrder = index)
         }
     }
 }

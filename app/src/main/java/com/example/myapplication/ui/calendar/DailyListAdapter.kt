@@ -66,7 +66,7 @@ class DailyListAdapter(
         RecyclerView.ViewHolder(binding.root) {
 
         fun bind(header: DailyListItem.DateHeader) {
-            val formatter = DateTimeFormatter.ofPattern("M月d日 (E)")
+            val formatter = DateTimeFormatter.ofPattern("yyyy年M月d日 (E)")
             binding.tvHeaderDate.text = header.date.format(formatter)
 
             val totalText = if (header.dailyTotal >= 0) {

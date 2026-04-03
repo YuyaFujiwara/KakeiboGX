@@ -11,6 +11,8 @@ import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import androidx.recyclerview.widget.ItemTouchHelper
+import androidx.recyclerview.widget.RecyclerView
 import com.example.myapplication.data.entity.Category
 import com.example.myapplication.data.entity.DailyData
 import com.example.myapplication.data.entity.TransactionType
@@ -65,10 +67,46 @@ class ReportFragment : Fragment() {
             val bundle = android.os.Bundle().apply {
                 putInt("categoryId", item.categoryId)
                 putString("categoryName", item.categoryName)
+                putString("currentMonth", currentMonth.toString())
             }
             findNavController().navigate(com.example.myapplication.R.id.action_report_to_category_report, bundle)
         }
         binding.rvCategoryReport.adapter = reportAdapter
+
+        // ドラッグ＆ドロップ並べ替え
+        val itemTouchHelper = ItemTouchHelper(
+            object : ItemTouchHelper.SimpleCallback(
+                ItemTouchHelper.UP or ItemTouchHelper.DOWN, 0
+            ) {
+                override fun onMove(
+                    recyclerView: RecyclerView,
+                    viewHolder: RecyclerView.ViewHolder,
+                    target: RecyclerView.ViewHolder
+                ): Boolean {
+                    reportAdapter.moveItem(viewHolder.adapterPosition, target.adapterPosition)
+                    return true
+                }
+
+                override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {}
+
+                override fun clearView(recyclerView: RecyclerView, viewHolder: RecyclerView.ViewHolder) {
+                    super.clearView(recyclerView, viewHolder)
+                    // ドロップ完了時に並び順を保存
+                    val orderedIds = reportAdapter.getReorderedCategoryIds()
+                    val updatedCategories = orderedIds.mapIndexedNotNull { index, catId ->
+                        currentCategories.find { it.id == catId }?.copy(displayOrder = index)
+                    }
+                    viewModel.updateCategoryOrder(updatedCategories)
+                }
+
+                override fun isLongPressDragEnabled(): Boolean = false
+            }
+        )
+        itemTouchHelper.attachToRecyclerView(binding.rvCategoryReport)
+
+        reportAdapter.onStartDrag = { viewHolder ->
+            itemTouchHelper.startDrag(viewHolder)
+        }
 
         updateMonthText()
 
@@ -189,13 +227,16 @@ class ReportFragment : Fragment() {
 
         // カテゴリごとの集計
         val categoryMap = targetList.groupBy { it.categoryId }.mapValues { entry -> entry.value.sumOf { it.amount } }
+        val today = java.time.LocalDate.now()
+        val todayMap = targetList.filter { it.date == today }.groupBy { it.categoryId }.mapValues { entry -> entry.value.sumOf { it.amount } }
         
         val reportItems = categoryMap.mapNotNull { (catId, amount) ->
             val category = currentCategories.find { it.id == catId } ?: return@mapNotNull null
             val percent = if (totalAmount > 0) amount / totalAmount else 0f
             val quota = viewModel.allQuotaSettings.value.find { it.categoryId == catId }
-            CategoryReportItem(catId, category.name, category.colorCode, amount, percent, quota?.amount ?: 0L, currentMonth)
-        }.sortedByDescending { it.amount }
+            val todayAmount = todayMap[catId] ?: 0L
+            CategoryReportItem(catId, category.name, category.colorCode, amount, percent, quota?.amount ?: 0L, currentMonth, category.displayOrder, todayAmount)
+        }.sortedBy { it.displayOrder }
 
         reportAdapter.submitList(reportItems)
         updateChartData(reportItems, totalAmount)

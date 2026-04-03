@@ -117,7 +117,7 @@ class CalendarFragment : Fragment() {
         }
 
         val daysInMonth = currentMonth.lengthOfMonth()
-        val startDayOffset = if (startDate.dayOfWeek.value == 7) 0 else startDate.dayOfWeek.value
+        val startDayOffset = startDate.dayOfWeek.value - 1  // 月=0, 火=1, ..., 日=6
         val calendarItems = mutableListOf<CalendarDayItem>()
 
         for (i in 0 until startDayOffset) {

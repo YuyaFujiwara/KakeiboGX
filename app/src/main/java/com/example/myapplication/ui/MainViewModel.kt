@@ -8,6 +8,7 @@ import com.example.myapplication.data.AppRepository
 import com.example.myapplication.data.entity.Category
 import com.example.myapplication.data.entity.DailyData
 import com.example.myapplication.data.entity.FixedCostSetting
+import com.example.myapplication.data.entity.Preset
 import com.example.myapplication.data.entity.QuotaSetting
 import com.example.myapplication.data.entity.TransactionType
 import kotlinx.coroutines.flow.Flow
@@ -25,6 +26,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val allDailyData: StateFlow<List<DailyData>>
     val allFixedCostSettings: StateFlow<List<FixedCostSetting>>
     val allQuotaSettings: StateFlow<List<QuotaSetting>>
+    val allPresets: StateFlow<List<Preset>>
 
     init {
         val database = AppDatabase.getDatabase(application)
@@ -32,7 +34,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             database.categoryDao(),
             database.dailyDataDao(),
             database.fixedCostSettingDao(),
-            database.quotaSettingDao()
+            database.quotaSettingDao(),
+            database.presetDao()
         )
 
         allCategories = repository.allCategories.stateIn(
@@ -58,12 +61,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             SharingStarted.WhileSubscribed(5000),
             emptyList()
         )
+
+        allPresets = repository.allPresets.stateIn(
+            viewModelScope,
+            SharingStarted.Eagerly,
+            emptyList()
+        )
     }
 
     // --- Category ---
     fun insertCategory(category: Category) = viewModelScope.launch { repository.insertCategory(category) }
     fun updateCategory(category: Category) = viewModelScope.launch { repository.updateCategory(category) }
     fun deleteCategory(category: Category) = viewModelScope.launch { repository.deleteCategory(category) }
+    fun updateCategoryOrder(categories: List<Category>) = viewModelScope.launch { repository.updateAllCategories(categories) }
 
     // --- DailyData ---
     fun getDailyDataByMonth(startDate: LocalDate, endDate: LocalDate): Flow<List<DailyData>> = repository.getDailyDataByMonth(startDate, endDate)
@@ -81,6 +91,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun insertQuotaSetting(setting: QuotaSetting) = viewModelScope.launch { repository.insertQuotaSetting(setting) }
     fun updateQuotaSetting(setting: QuotaSetting) = viewModelScope.launch { repository.updateQuotaSetting(setting) }
     fun deleteQuotaSetting(setting: QuotaSetting) = viewModelScope.launch { repository.deleteQuotaSetting(setting) }
+
+    // --- Preset ---
+    fun insertPreset(preset: Preset) = viewModelScope.launch { repository.insertPreset(preset) }
+    fun updatePreset(preset: Preset) = viewModelScope.launch { repository.updatePreset(preset) }
+    fun deletePreset(preset: Preset) = viewModelScope.launch { repository.deletePreset(preset) }
+    fun incrementPresetUsageCount(id: Int) = viewModelScope.launch { repository.incrementPresetUsageCount(id) }
 
     // --- CSV Export / Import ---
     fun exportCsv(uri: android.net.Uri, context: android.content.Context) = viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {

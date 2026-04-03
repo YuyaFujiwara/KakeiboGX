@@ -43,6 +43,12 @@ class CategoryReportFragment : Fragment() {
 
         val categoryId = arguments?.getInt("categoryId") ?: 0
         val categoryName = arguments?.getString("categoryName") ?: ""
+        val currentMonthStr = arguments?.getString("currentMonth") ?: ""
+        val currentMonth = if (currentMonthStr.isNotEmpty()) {
+            YearMonth.parse(currentMonthStr)
+        } else {
+            YearMonth.now()
+        }
 
         binding.toolbar.title = "$categoryName のレポート"
         binding.toolbar.setNavigationIcon(androidx.appcompat.R.drawable.abc_ic_ab_back_material)
@@ -73,11 +79,27 @@ class CategoryReportFragment : Fragment() {
                 }
                 launch {
                     viewModel.allDailyData.collectLatest { allData ->
-                        val catData = allData.filter { it.categoryId == categoryId }.sortedByDescending { it.date }
-                        dailyListAdapter.submitGroupedList(catData)
+                        val allCatData = allData.filter { it.categoryId == categoryId }
+                        
+                        // 全期間のデータをリストに表示（日付降順）
+                        dailyListAdapter.submitGroupedList(allCatData.sortedByDescending { it.date })
+                        
+                        // 今月のヘッダー位置にスクロール
+                        val monthStart = currentMonth.atDay(1)
+                        val monthEnd = currentMonth.atEndOfMonth()
+                        binding.rvDailyList.post {
+                            val pos = dailyListAdapter.currentList.indexOfFirst {
+                                it is com.example.myapplication.ui.calendar.DailyListItem.DateHeader &&
+                                !it.date.isBefore(monthStart) && !it.date.isAfter(monthEnd)
+                            }
+                            if (pos >= 0) {
+                                (binding.rvDailyList.layoutManager as? LinearLayoutManager)
+                                    ?.scrollToPositionWithOffset(pos, 0)
+                            }
+                        }
 
                         // チャートの更新
-                        val monthlySums = catData.groupBy { YearMonth.from(it.date) }
+                        val monthlySums = allCatData.groupBy { YearMonth.from(it.date) }
                             .mapValues { entry -> entry.value.sumOf { it.amount } }
                             .toSortedMap()
 
@@ -85,9 +107,13 @@ class CategoryReportFragment : Fragment() {
                             val entries = ArrayList<BarEntry>()
                             val labels = ArrayList<String>()
                             var index = 0f
+                            var currentMonthIndex = 0f
                             
                             val formatter = DateTimeFormatter.ofPattern("yyyy/M月")
                             for ((month, sum) in monthlySums) {
+                                if (month == currentMonth) {
+                                    currentMonthIndex = index
+                                }
                                 entries.add(BarEntry(index, sum.toFloat()))
                                 labels.add(month.format(formatter))
                                 index++
@@ -109,7 +135,8 @@ class CategoryReportFragment : Fragment() {
                             binding.barChart.axisLeft.axisMinimum = 0f
                             
                             binding.barChart.setVisibleXRangeMaximum(6f)
-                            binding.barChart.moveViewToX(labels.size.toFloat() - 1f)
+                            // 今月が真ん中に来るようにスクロール (6本表示なので -3)
+                            binding.barChart.moveViewToX((currentMonthIndex - 3f).coerceAtLeast(0f))
                             binding.barChart.invalidate()
                         } else {
                             binding.barChart.clear()

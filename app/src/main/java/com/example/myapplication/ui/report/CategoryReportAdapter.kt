@@ -20,12 +20,16 @@ data class CategoryReportItem(
     val amount: Long,
     val percent: Float,
     val quotaAmount: Long = 0L, // 予算額（0 = 未設定）
-    val currentMonth: YearMonth = YearMonth.now()
+    val currentMonth: YearMonth = YearMonth.now(),
+    val displayOrder: Int = 0,
+    val todayAmount: Long = 0L // 今日の使用額
 )
 
 class CategoryReportAdapter(
     private val onClick: (CategoryReportItem) -> Unit
 ) : ListAdapter<CategoryReportItem, CategoryReportAdapter.CategoryReportViewHolder>(CategoryReportDiffCallback()) {
+
+    var onStartDrag: ((RecyclerView.ViewHolder) -> Unit)? = null
 
     inner class CategoryReportViewHolder(private val binding: ItemCategoryReportBinding) :
         RecyclerView.ViewHolder(binding.root) {
@@ -57,12 +61,21 @@ class CategoryReportAdapter(
                 } else {
                     0
                 }
-                val perDay = if (daysLeft > 0 && remaining > 0) remaining / daysLeft else 0L
+
+                // 今日の目標額 = (予算 - 昨日までの使用額) / 残日数
+                val spentBeforeToday = item.amount - item.todayAmount
+                val remainingBeforeToday = item.quotaAmount - spentBeforeToday
+                val dailyTarget = if (daysLeft > 0 && remainingBeforeToday > 0) remainingBeforeToday / daysLeft else 0L
 
                 val quotaText = if (remaining >= 0) {
-                    "予算 ¥%,d / 残 ¥%,d / 日¥%,d".format(item.quotaAmount, remaining, perDay)
+                    val todayRemaining = (dailyTarget - item.todayAmount).coerceAtLeast(0)
+                    "残 ¥%,d / ¥%,d | 今日の目標 ¥%,d (使用 ¥%,d) あと¥%,d".format(
+                        remaining, item.quotaAmount, dailyTarget, item.todayAmount, todayRemaining
+                    )
                 } else {
-                    "予算 ¥%,d / 超過 ¥%,d".format(item.quotaAmount, Math.abs(remaining))
+                    "超過 ¥%,d / ¥%,d | 今日 ¥%,d".format(
+                        Math.abs(remaining), item.quotaAmount, item.todayAmount
+                    )
                 }
                 binding.tvQuotaInfo.text = quotaText
                 binding.tvQuotaInfo.visibility = View.VISIBLE
@@ -80,6 +93,11 @@ class CategoryReportAdapter(
             binding.root.setOnClickListener {
                 onClick(item)
             }
+
+            binding.root.setOnLongClickListener {
+                onStartDrag?.invoke(this)
+                true
+            }
         }
     }
 
@@ -92,6 +110,17 @@ class CategoryReportAdapter(
 
     override fun onBindViewHolder(holder: CategoryReportViewHolder, position: Int) {
         holder.bind(getItem(position))
+    }
+
+    fun moveItem(from: Int, to: Int) {
+        val list = currentList.toMutableList()
+        val item = list.removeAt(from)
+        list.add(to, item)
+        super.submitList(list)
+    }
+
+    fun getReorderedCategoryIds(): List<Int> {
+        return currentList.map { it.categoryId }
     }
 }
 

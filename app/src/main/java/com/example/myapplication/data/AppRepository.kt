@@ -3,10 +3,12 @@ package com.example.myapplication.data
 import com.example.myapplication.data.dao.CategoryDao
 import com.example.myapplication.data.dao.DailyDataDao
 import com.example.myapplication.data.dao.FixedCostSettingDao
+import com.example.myapplication.data.dao.PresetDao
 import com.example.myapplication.data.dao.QuotaSettingDao
 import com.example.myapplication.data.entity.Category
 import com.example.myapplication.data.entity.DailyData
 import com.example.myapplication.data.entity.FixedCostSetting
+import com.example.myapplication.data.entity.Preset
 import com.example.myapplication.data.entity.QuotaSetting
 import com.example.myapplication.data.entity.TransactionType
 import kotlinx.coroutines.flow.Flow
@@ -16,7 +18,8 @@ class AppRepository(
     private val categoryDao: CategoryDao,
     private val dailyDataDao: DailyDataDao,
     private val fixedCostSettingDao: FixedCostSettingDao,
-    private val quotaSettingDao: QuotaSettingDao
+    private val quotaSettingDao: QuotaSettingDao,
+    private val presetDao: PresetDao
 ) {
 
     // --- Category ---
@@ -25,6 +28,7 @@ class AppRepository(
     suspend fun getCategoryById(id: Int) = categoryDao.getCategoryById(id)
     suspend fun insertCategory(category: Category) = categoryDao.insertCategory(category)
     suspend fun updateCategory(category: Category) = categoryDao.updateCategory(category)
+    suspend fun updateAllCategories(categories: List<Category>) = categoryDao.updateAllCategories(categories)
     suspend fun deleteCategory(category: Category) = categoryDao.deleteCategory(category)
 
     // --- DailyData ---
@@ -50,4 +54,12 @@ class AppRepository(
     suspend fun insertQuotaSetting(setting: QuotaSetting) = quotaSettingDao.insertQuotaSetting(setting)
     suspend fun updateQuotaSetting(setting: QuotaSetting) = quotaSettingDao.updateQuotaSetting(setting)
     suspend fun deleteQuotaSetting(setting: QuotaSetting) = quotaSettingDao.deleteQuotaSetting(setting)
+
+    // --- Preset ---
+    val allPresets: Flow<List<Preset>> = presetDao.getAllPresets()
+    fun getPresetsByType(type: TransactionType) = presetDao.getPresetsByType(type)
+    suspend fun insertPreset(preset: Preset) = presetDao.insertPreset(preset)
+    suspend fun updatePreset(preset: Preset) = presetDao.updatePreset(preset)
+    suspend fun deletePreset(preset: Preset) = presetDao.deletePreset(preset)
+    suspend fun incrementPresetUsageCount(id: Int) = presetDao.incrementUsageCount(id)
 }
