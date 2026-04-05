@@ -29,7 +29,8 @@ class CalendarTab:
                        command=self._next_month).pack(side="left", padx=5, pady=5)
 
         # === カレンダーグリッド ===
-        self.cal_frame = ctk.CTkFrame(self.parent)
+        self.cal_frame = ctk.CTkFrame(self.parent, height=270)
+        self.cal_frame.grid_propagate(False)
         self.cal_frame.pack(fill="x", padx=10, pady=5)
 
         # 曜日ヘッダー
@@ -41,7 +42,11 @@ class CalendarTab:
             lbl.grid(row=0, column=i, padx=2, pady=2, sticky="nsew")
 
         for i in range(7):
-            self.cal_frame.columnconfigure(i, weight=1)
+            self.cal_frame.columnconfigure(i, weight=1, uniform="cal_col", minsize=50)
+
+        # 6行分の高さを均等に分割（全体の高さはcal_frameのheightで固定）
+        for i in range(1, 7):
+            self.cal_frame.rowconfigure(i, weight=1, uniform="cal_row")
 
         # === 月間サマリー ===
         summary_frame = ctk.CTkFrame(self.parent)
@@ -132,25 +137,26 @@ class CalendarTab:
 
         for week_idx, week in enumerate(month_days):
             for day_idx, day in enumerate(week):
-                cell = ctk.CTkFrame(self.cal_frame, height=55, corner_radius=4)
+                cell = ctk.CTkFrame(self.cal_frame, corner_radius=4)
                 cell.grid(row=week_idx + 1, column=day_idx, padx=1, pady=1, sticky="nsew")
                 cell.grid_propagate(False)
+                cell.pack_propagate(False)
 
                 if day == 0:
                     continue
 
                 # 日付
                 day_color = "#FF6B6B" if day_idx == 6 else ("#6BA3FF" if day_idx == 5 else "#CCCCCC")
-                ctk.CTkLabel(cell, text=str(day), font=("", 11),
-                              text_color=day_color, anchor="nw").pack(anchor="nw", padx=2)
+                ctk.CTkLabel(cell, text=str(day), font=("", 12, "bold"),
+                              text_color=day_color).pack(anchor="nw", padx=3, pady=(2, 0))
 
                 inc, exp = day_totals.get(day, (0, 0))
                 if inc > 0:
-                    ctk.CTkLabel(cell, text=f"+{inc:,}", font=("", 9),
-                                  text_color="#4FC3F7", anchor="e").pack(fill="x", padx=2)
+                    ctk.CTkLabel(cell, text=f"+{inc:,}", font=("", 10),
+                                  text_color="#4FC3F7", anchor="e").pack(fill="x", padx=3, pady=0)
                 if exp > 0:
-                    ctk.CTkLabel(cell, text=f"-{exp:,}", font=("", 9),
-                                  text_color="#EF5350", anchor="e").pack(fill="x", padx=2)
+                    ctk.CTkLabel(cell, text=f"-{exp:,}", font=("", 10),
+                                  text_color="#EF5350", anchor="e").pack(fill="x", padx=3, pady=0)
 
     def _update_daily_list(self):
         # クリア
@@ -215,26 +221,26 @@ class CalendarTab:
             row_frame.pack(fill="x", pady=1)
 
             # カテゴリ色インジケーター
-            indicator = ctk.CTkFrame(row_frame, width=4, fg_color=cat_color, corner_radius=2)
-            indicator.pack(side="left", fill="y", padx=(10, 5), pady=2)
+            indicator = ctk.CTkFrame(row_frame, width=6, height=16, fg_color=cat_color, corner_radius=3)
+            indicator.pack(side="left", padx=(10, 5))
 
             ctk.CTkLabel(row_frame, text=cat_name, width=80, anchor="w",
-                          font=("", 12)).pack(side="left", padx=5, pady=3)
+                          font=("", 12)).pack(side="left", padx=2, pady=2)
             ctk.CTkLabel(row_frame, text=d.memo, anchor="w",
-                          font=("", 12)).pack(side="left", fill="x", expand=True, padx=5, pady=3)
+                          font=("", 12)).pack(side="left", fill="x", expand=True, padx=5, pady=2)
 
             amount_color = "#4FC3F7" if d.type == "INCOME" else "#EF5350"
             sign = "+" if d.type == "INCOME" else "-"
             ctk.CTkLabel(row_frame, text=f"{sign}¥{d.amount:,}", anchor="e",
-                          font=("", 12), text_color=amount_color).pack(side="right", padx=10, pady=3)
+                          font=("", 12), text_color=amount_color).pack(side="right", padx=10, pady=2)
 
             # 削除ボタン
             del_btn = ctk.CTkButton(
-                row_frame, text="×", width=30, height=25,
+                row_frame, text="×", width=25, height=22,
                 fg_color="#555555", hover_color="#EF5350",
                 command=lambda entry=d: self._delete_entry(entry)
             )
-            del_btn.pack(side="right", padx=2, pady=3)
+            del_btn.pack(side="right", padx=2, pady=2)
 
     def _delete_entry(self, entry):
         from tkinter import messagebox

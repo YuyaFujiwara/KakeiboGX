@@ -58,8 +58,10 @@ class SettingsTab:
         data_frame = ctk.CTkFrame(main_frame)
         data_frame.pack(fill="x", padx=5, pady=5)
 
-        ctk.CTkButton(data_frame, text="CSVエクスポート",
-                       command=self._export_csv).pack(side="left", padx=5, pady=5)
+        ctk.CTkButton(data_frame, text="ローカルへCSVエクスポート",
+                       command=self._export_csv_local).pack(side="left", padx=5, pady=5)
+        ctk.CTkButton(data_frame, text="DriveへCSVエクスポート",
+                       command=self._export_csv_drive).pack(side="left", padx=5, pady=5)
         ctk.CTkButton(data_frame, text="JSONファイル再読み込み",
                        command=self._reload_data).pack(side="left", padx=5, pady=5)
 
@@ -110,16 +112,16 @@ class SettingsTab:
                 except ValueError:
                     cat_color = "#808080"
 
-                indicator = ctk.CTkFrame(row, width=6, fg_color=cat_color, corner_radius=3)
-                indicator.pack(side="left", fill="y", padx=(5, 8), pady=2)
+                indicator = ctk.CTkFrame(row, width=6, height=16, fg_color=cat_color, corner_radius=3)
+                indicator.pack(side="left", padx=(5, 8))
 
                 ctk.CTkLabel(row, text=cat.name, font=("", 12), anchor="w").pack(
-                    side="left", padx=5, pady=3)
+                    side="left", padx=5, pady=2)
 
                 ctk.CTkButton(row, text="削除", width=50, height=25,
                                fg_color="#555555", hover_color="#EF5350",
                                command=lambda c=cat: self._delete_category(c)).pack(
-                    side="right", padx=5, pady=3)
+                    side="right", padx=5, pady=2)
 
     def _add_category(self):
         dialog = ctk.CTkInputDialog(text="カテゴリ名:", title="カテゴリ追加")
@@ -213,7 +215,7 @@ class SettingsTab:
                           text_color="#4FC3F7" if quota else "#888888").pack(
                 side="left", padx=10, pady=3)
 
-    def _export_csv(self):
+    def _export_csv_local(self):
         path = filedialog.asksaveasfilename(
             defaultextension=".csv",
             filetypes=[("CSV files", "*.csv")],
@@ -221,7 +223,23 @@ class SettingsTab:
         )
         if not path:
             return
+        self._write_csv(path)
+        messagebox.showinfo("完了", f"CSVをエクスポートしました:\n{path}")
 
+    def _export_csv_drive(self):
+        drive_dir = os.path.dirname(self.app.sync_file_path)
+        if not os.path.exists(drive_dir):
+            messagebox.showerror("エラー", "Driveの同期フォルダが見つかりません。")
+            return
+            
+        path = os.path.join(drive_dir, "household_data.csv")
+        try:
+            self._write_csv(path)
+            messagebox.showinfo("完了", f"DriveにCSVを直接エクスポートしました:\n{path}")
+        except Exception as e:
+            messagebox.showerror("エラー", f"書き込みに失敗しました:\n{e}")
+
+    def _write_csv(self, path):
         daily = self.app.get_active_daily_data()
         with open(path, "w", newline="", encoding="utf-8-sig") as f:
             writer = csv.writer(f)
@@ -230,8 +248,6 @@ class SettingsTab:
                 cat = self.app.get_category_by_sync_id(d.category_sync_id)
                 cat_name = cat.name if cat else "?"
                 writer.writerow([d.date, cat_name, d.type, d.amount, d.memo])
-
-        messagebox.showinfo("完了", f"CSVをエクスポートしました:\n{path}")
 
     def _reload_data(self):
         self.app.reload_data()

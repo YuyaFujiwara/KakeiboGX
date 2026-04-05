@@ -36,6 +36,6 @@ interface DailyDataDao {
     @Delete
     suspend fun deleteDailyData(data: DailyData)
 
-    @Query("DELETE FROM daily_data")
-    suspend fun deleteAllDailyData()
+    @Query("UPDATE daily_data SET isDeleted = 1, updatedAt = :timestamp")
+    suspend fun deleteAllDailyData(timestamp: Long = System.currentTimeMillis())
 }

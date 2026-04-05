@@ -54,10 +54,18 @@
             android:layout_marginBottom="16dp"/>
 
         <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_export_csv_drive"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="DriveへCSVエクスポート"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_marginBottom="8dp"/>
+
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_export_csv"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="CSVエクスポート"
+            android:text="ローカルへCSVエクスポート"
             style="@style/Widget.MaterialComponents.Button.OutlinedButton"
             android:layout_marginBottom="8dp"/>
 

@@ -40,7 +40,7 @@ class AppRepository(
     suspend fun insertAllDailyData(dataList: List<DailyData>) = dailyDataDao.insertAllDailyData(dataList)
     suspend fun updateDailyData(data: DailyData) = dailyDataDao.updateDailyData(data)
     suspend fun deleteDailyData(data: DailyData) = dailyDataDao.deleteDailyData(data)
-    suspend fun deleteAllDailyData() = dailyDataDao.deleteAllDailyData()
+    suspend fun deleteAllDailyData(timestamp: Long = System.currentTimeMillis()) = dailyDataDao.deleteAllDailyData(timestamp)
 
     // --- FixedCostSetting ---
     val allFixedCostSettings: Flow<List<FixedCostSetting>> = fixedCostSettingDao.getAllFixedCostSettings()

@@ -17,7 +17,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
@@ -42,67 +44,80 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             database.presetDao()
         )
 
-        allCategories = repository.allCategories.stateIn(
-            viewModelScope,
-            SharingStarted.WhileSubscribed(5000),
-            emptyList()
-        )
+        allCategories = repository.allCategories
+            .map { list -> list.filter { !it.isDeleted } }
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                emptyList()
+            )
 
-        allDailyData = repository.allDailyData.stateIn(
-            viewModelScope,
-            SharingStarted.WhileSubscribed(5000),
-            emptyList()
-        )
+        allDailyData = repository.allDailyData
+            .map { list -> list.filter { !it.isDeleted } }
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                emptyList()
+            )
         
-        allFixedCostSettings = repository.allFixedCostSettings.stateIn(
-            viewModelScope,
-            SharingStarted.WhileSubscribed(5000),
-            emptyList()
-        )
+        allFixedCostSettings = repository.allFixedCostSettings
+            .map { list -> list.filter { !it.isDeleted } }
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                emptyList()
+            )
 
-        allQuotaSettings = repository.allQuotaSettings.stateIn(
-            viewModelScope,
-            SharingStarted.WhileSubscribed(5000),
-            emptyList()
-        )
+        allQuotaSettings = repository.allQuotaSettings
+            .map { list -> list.filter { !it.isDeleted } }
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                emptyList()
+            )
 
-        allPresets = repository.allPresets.stateIn(
-            viewModelScope,
-            SharingStarted.Eagerly,
-            emptyList()
-        )
+        allPresets = repository.allPresets
+            .map { list -> list.filter { !it.isDeleted } }
+            .stateIn(
+                viewModelScope,
+                SharingStarted.Eagerly,
+                emptyList()
+            )
 
         syncEngine = SyncEngine(repository)
     }
 
     // --- Category ---
     fun insertCategory(category: Category) = viewModelScope.launch { repository.insertCategory(category) }
-    fun updateCategory(category: Category) = viewModelScope.launch { repository.updateCategory(category) }
-    fun deleteCategory(category: Category) = viewModelScope.launch { repository.deleteCategory(category) }
-    fun updateCategoryOrder(categories: List<Category>) = viewModelScope.launch { repository.updateAllCategories(categories) }
+    fun updateCategory(category: Category) = viewModelScope.launch { repository.updateCategory(category.copy(updatedAt = System.currentTimeMillis())) }
+    fun deleteCategory(category: Category) = viewModelScope.launch { repository.updateCategory(category.copy(isDeleted = true, updatedAt = System.currentTimeMillis())) }
+    fun updateCategoryOrder(categories: List<Category>) = viewModelScope.launch { 
+        val updated = categories.map { it.copy(updatedAt = System.currentTimeMillis()) }
+        repository.updateAllCategories(updated) 
+    }
 
     // --- DailyData ---
-    fun getDailyDataByMonth(startDate: LocalDate, endDate: LocalDate): Flow<List<DailyData>> = repository.getDailyDataByMonth(startDate, endDate)
-    fun getDailyDataByDate(date: LocalDate): Flow<List<DailyData>> = repository.getDailyDataByDate(date)
+    fun getDailyDataByMonth(startDate: LocalDate, endDate: LocalDate): Flow<List<DailyData>> = repository.getDailyDataByMonth(startDate, endDate).map { list -> list.filter { !it.isDeleted } }
+    fun getDailyDataByDate(date: LocalDate): Flow<List<DailyData>> = repository.getDailyDataByDate(date).map { list -> list.filter { !it.isDeleted } }
     fun insertDailyData(data: DailyData) = viewModelScope.launch { repository.insertDailyData(data) }
-    fun updateDailyData(data: DailyData) = viewModelScope.launch { repository.updateDailyData(data) }
-    fun deleteDailyData(data: DailyData) = viewModelScope.launch { repository.deleteDailyData(data) }
+    fun updateDailyData(data: DailyData) = viewModelScope.launch { repository.updateDailyData(data.copy(updatedAt = System.currentTimeMillis())) }
+    fun deleteDailyData(data: DailyData) = viewModelScope.launch { repository.updateDailyData(data.copy(isDeleted = true, updatedAt = System.currentTimeMillis())) }
     fun deleteAllDailyData() = viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) { repository.deleteAllDailyData() }
 
     // --- FixedCostSetting ---
     fun insertFixedCostSetting(setting: FixedCostSetting) = viewModelScope.launch { repository.insertFixedCostSetting(setting) }
-    fun updateFixedCostSetting(setting: FixedCostSetting) = viewModelScope.launch { repository.updateFixedCostSetting(setting) }
-    fun deleteFixedCostSetting(setting: FixedCostSetting) = viewModelScope.launch { repository.deleteFixedCostSetting(setting) }
+    fun updateFixedCostSetting(setting: FixedCostSetting) = viewModelScope.launch { repository.updateFixedCostSetting(setting.copy(updatedAt = System.currentTimeMillis())) }
+    fun deleteFixedCostSetting(setting: FixedCostSetting) = viewModelScope.launch { repository.updateFixedCostSetting(setting.copy(isDeleted = true, updatedAt = System.currentTimeMillis())) }
 
     // --- QuotaSetting ---
     fun insertQuotaSetting(setting: QuotaSetting) = viewModelScope.launch { repository.insertQuotaSetting(setting) }
-    fun updateQuotaSetting(setting: QuotaSetting) = viewModelScope.launch { repository.updateQuotaSetting(setting) }
-    fun deleteQuotaSetting(setting: QuotaSetting) = viewModelScope.launch { repository.deleteQuotaSetting(setting) }
+    fun updateQuotaSetting(setting: QuotaSetting) = viewModelScope.launch { repository.updateQuotaSetting(setting.copy(updatedAt = System.currentTimeMillis())) }
+    fun deleteQuotaSetting(setting: QuotaSetting) = viewModelScope.launch { repository.updateQuotaSetting(setting.copy(isDeleted = true, updatedAt = System.currentTimeMillis())) }
 
     // --- Preset ---
     fun insertPreset(preset: Preset) = viewModelScope.launch { repository.insertPreset(preset) }
-    fun updatePreset(preset: Preset) = viewModelScope.launch { repository.updatePreset(preset) }
-    fun deletePreset(preset: Preset) = viewModelScope.launch { repository.deletePreset(preset) }
+    fun updatePreset(preset: Preset) = viewModelScope.launch { repository.updatePreset(preset.copy(updatedAt = System.currentTimeMillis())) }
+    fun deletePreset(preset: Preset) = viewModelScope.launch { repository.updatePreset(preset.copy(isDeleted = true, updatedAt = System.currentTimeMillis())) }
     fun incrementPresetUsageCount(id: Int) = viewModelScope.launch { repository.incrementPresetUsageCount(id) }
 
     // --- Sync ---
@@ -112,8 +127,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 // 1. Drive からリモートデータを読み込み
                 val remoteJson = driveHelper.readSyncFile()
 
-                // 2. リモートが存在する場合はマージ
-                if (remoteJson != null) {
+                // 2. リモートが存在し、かつ空っぽでない場合はマージ
+                if (!remoteJson.isNullOrBlank()) {
                     val remoteData = syncEngine.fromJson(remoteJson)
                     syncEngine.mergeFromRemote(remoteData)
                 }
@@ -121,16 +136,45 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 // 3. マージ後のローカルデータを Drive に書き戻し
                 val localData = syncEngine.exportToSyncData()
                 val json = syncEngine.toJson(localData)
-                val writeSuccess = driveHelper.writeSyncFile(json)
+                driveHelper.writeSyncFile(json) // これが失敗すればExceptionが飛ぶ
+                onComplete(true, "")
+            } catch (e: Exception) {
+                e.printStackTrace()
+                // 例外のメッセージを取り出して表示に含める
+                val errorMsg = e.message ?: e.javaClass.simpleName
+                onComplete(false, "詳細: $errorMsg")
+            }
+        }
+    }
 
+    fun exportCsvToDrive(driveHelper: DriveHelper, onComplete: (Boolean, String) -> Unit) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val dailyData = repository.allDailyData.first().sortedBy { it.date }
+                val categories = repository.allCategories.first().associateBy { it.id }
+
+                val stringBuilder = StringBuilder()
+                stringBuilder.append("Date,Category,Type,Amount,Memo\n")
+
+                for (data in dailyData) {
+                    val categoryName = categories[data.categoryId]?.name ?: "不明"
+                    val memoSafe = data.memo.replace("\"", "\"\"")
+                    val line = "${data.date},${categoryName},${data.type.name},${data.amount},\"${memoSafe}\"\n"
+                    stringBuilder.append(line)
+                }
+
+                // Excel等で文字化けしないようBOMを付与
+                val csvContent = "\uFEFF" + stringBuilder.toString()
+                
+                val writeSuccess = driveHelper.writeCsvFile(csvContent)
                 if (writeSuccess) {
                     onComplete(true, "")
                 } else {
-                    onComplete(false, "Drive への書き込みに失敗")
+                    onComplete(false, "Drive 書き込み失敗")
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
-                onComplete(false, e.message ?: "不明なエラー")
+                onComplete(false, "詳細: " + (e.message ?: e.javaClass.simpleName))
             }
         }
     }

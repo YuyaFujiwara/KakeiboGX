@@ -9,6 +9,9 @@ matplotlib.use("TkAgg")
 matplotlib.rcParams['font.family'] = 'Yu Gothic'
 matplotlib.rcParams['axes.unicode_minus'] = False
 
+from ui.category_report_window import CategoryReportWindow
+
+
 
 class ReportTab:
     def __init__(self, parent, app):
@@ -68,13 +71,13 @@ class ReportTab:
         )
         self.btn_income.pack(side="left", padx=5, pady=5)
 
-        # === メインコンテンツ (左: グラフ、右: リスト) ===
+        # === メインコンテンツ (上: グラフ、下: リスト) ===
         content_frame = ctk.CTkFrame(self.parent, fg_color="transparent")
         content_frame.pack(fill="both", expand=True, padx=10, pady=5)
 
         # 円グラフ
         chart_frame = ctk.CTkFrame(content_frame)
-        chart_frame.pack(side="left", fill="both", expand=True, padx=(0, 5))
+        chart_frame.pack(side="top", fill="both", expand=True, padx=5, pady=(0, 5))
 
         self.fig = Figure(figsize=(4, 3.5), dpi=100, facecolor='#2b2b2b')
         self.ax = self.fig.add_subplot(111)
@@ -82,8 +85,8 @@ class ReportTab:
         self.canvas.get_tk_widget().pack(fill="both", expand=True, padx=5, pady=5)
 
         # カテゴリリスト
-        self.list_frame = ctk.CTkScrollableFrame(content_frame, width=350)
-        self.list_frame.pack(side="right", fill="both", padx=(5, 0))
+        self.list_frame = ctk.CTkScrollableFrame(content_frame)
+        self.list_frame.pack(side="top", fill="both", expand=True, padx=0, pady=(5, 0))
 
     def _set_type(self, t: str):
         self.current_type = t
@@ -201,6 +204,7 @@ class ReportTab:
         self.canvas.draw()
 
     def _update_list(self, items, total_amount):
+        # クリア
         for widget in self.list_frame.winfo_children():
             widget.destroy()
 
@@ -208,8 +212,8 @@ class ReportTab:
         quotas = {q.category_sync_id: q for q in self.app.get_active_quota_settings()}
 
         for cat, amount, pct in items:
-            row = ctk.CTkFrame(self.list_frame)
-            row.pack(fill="x", pady=2)
+            row_frame = ctk.CTkFrame(self.list_frame, fg_color="#333333", corner_radius=8)
+            row_frame.pack(fill="x", pady=2, padx=2)
 
             try:
                 cat_color = f"#{cat.color_code}"
@@ -217,26 +221,51 @@ class ReportTab:
             except (ValueError, AttributeError):
                 cat_color = "#808080"
 
-            # 色インジケーター
-            indicator = ctk.CTkFrame(row, width=6, fg_color=cat_color, corner_radius=3)
-            indicator.pack(side="left", fill="y", padx=(5, 8), pady=4)
+            # === カラーインジケーター ===
+            indicator = ctk.CTkFrame(row_frame, width=12, height=40, fg_color=cat_color, corner_radius=6)
+            indicator.pack(side="left", padx=5, pady=5)
 
-            # カテゴリ名
-            ctk.CTkLabel(row, text=cat.name, font=("", 13), anchor="w",
-                          width=80).pack(side="left", padx=2, pady=4)
+            # === カテゴリ名と詳細（予算情報など） ===
+            info_frame = ctk.CTkFrame(row_frame, fg_color="transparent")
+            info_frame.pack(side="left", fill="both", expand=True, padx=5, pady=5)
 
-            # 金額 + 割合
-            info_text = f"¥{amount:,}  ({pct*100:.1f}%)"
-            ctk.CTkLabel(row, text=info_text, font=("", 12), anchor="e",
-                          text_color="#CCCCCC").pack(side="right", padx=10, pady=4)
-
-            # 予算がある場合
+            ctk.CTkLabel(info_frame, text=cat.name, font=("", 14, "bold"), anchor="w").pack(fill="x")
+            
             quota = quotas.get(cat.sync_id)
-            if quota:
+            if quota and quota.amount > 0:
                 remaining = quota.amount - amount
-                remaining_color = "#4FC3F7" if remaining >= 0 else "#EF5350"
-                ctk.CTkLabel(row, text=f"残: ¥{remaining:,}", font=("", 11),
-                              anchor="e", text_color=remaining_color).pack(side="right", padx=5, pady=4)
+                if remaining >= 0:
+                    q_text = f"予算: ¥{quota.amount:,} | 残額: ¥{remaining:,}"
+                    q_color = "#AAAAAA"
+                else:
+                    q_text = f"予算: ¥{quota.amount:,} | 超過: ¥{abs(remaining):,}"
+                    q_color = "#EF5350"
+                ctk.CTkLabel(info_frame, text=q_text, font=("", 11), text_color=q_color, anchor="w").pack(fill="x")
+
+            # === 金額とパーセンテージ ===
+            right_frame = ctk.CTkFrame(row_frame, fg_color="transparent")
+            right_frame.pack(side="right", fill="y", padx=5, pady=5)
+            
+            ctk.CTkLabel(right_frame, text=f"¥ {amount:,}", font=("", 14, "bold")).pack(anchor="e")
+            ctk.CTkLabel(right_frame, text=f"{pct*100:.1f}%", font=("", 12), text_color="#AAAAAA").pack(anchor="e")
+
+            # クリックイベントの登録処理
+            def bind_click(widget, cat_obj=cat):
+                widget.bind("<Button-1>", lambda e, c=cat_obj: self._open_category_report(c))
+                for child in widget.winfo_children():
+                    bind_click(child, cat_obj)
+            
+            bind_click(row_frame)
+            
+            # ホバー時のカーソル変更 (Windows等でクリック可能であることを示す)
+            row_frame.configure(cursor="hand2")
+
+    def _open_category_report(self, category):
+        # 既に開いている場合は閉じて新しく開く（再描画のため）
+        if hasattr(self, "report_window") and self.report_window.winfo_exists():
+            self.report_window.destroy()
+        self.report_window = CategoryReportWindow(self.parent.winfo_toplevel(), self.app, category)
+
 
 
 # matplotlib patches import

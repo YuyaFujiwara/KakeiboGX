@@ -64,14 +64,21 @@ class CategoryEditBottomSheet(
 
             val type = if (binding.rbIncome.isChecked) TransactionType.INCOME else TransactionType.EXPENSE
 
-            val result = Category(
-                id = existingCategory?.id ?: 0,
-                name = name,
-                type = type,
-                colorCode = selectedColorCode,
-                iconName = existingCategory?.iconName ?: "ic_category_default",
-                displayOrder = existingCategory?.displayOrder ?: 0
-            )
+            val result = if (existingCategory != null) {
+                existingCategory.copy(
+                    name = name,
+                    type = type,
+                    colorCode = selectedColorCode
+                )
+            } else {
+                Category(
+                    name = name,
+                    type = type,
+                    colorCode = selectedColorCode,
+                    iconName = "ic_category_default",
+                    displayOrder = 0
+                )
+            }
 
             onSave(result)
             dismiss()

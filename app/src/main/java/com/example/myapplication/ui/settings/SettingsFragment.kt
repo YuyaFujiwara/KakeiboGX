@@ -96,6 +96,27 @@ class SettingsFragment : Fragment() {
             exportLauncher.launch("household_data.csv")
         }
 
+        binding.btnExportCsvDrive.setOnClickListener {
+            if (!driveHelper.isSignedIn()) {
+                Toast.makeText(requireContext(), "先にGoogleログインしてください", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            binding.btnExportCsvDrive.isEnabled = false
+            binding.btnExportCsvDrive.text = "エクスポート中..."
+            viewModel.exportCsvToDrive(driveHelper) { success, msg ->
+                if (!isAdded) return@exportCsvToDrive
+                requireActivity().runOnUiThread {
+                    binding.btnExportCsvDrive.isEnabled = true
+                    binding.btnExportCsvDrive.text = "DriveへCSVエクスポート"
+                    if (success) {
+                        Toast.makeText(requireContext(), "DriveにCSVをエクスポートしました", Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(requireContext(), "エラー: $msg", Toast.LENGTH_LONG).show()
+                    }
+                }
+            }
+        }
+
         binding.btnImportCsv.setOnClickListener {
             android.app.AlertDialog.Builder(requireContext())
                 .setTitle("CSVインポート")
