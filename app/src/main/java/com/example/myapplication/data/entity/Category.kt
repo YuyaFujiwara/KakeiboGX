@@ -2,6 +2,7 @@ package com.example.myapplication.data.entity
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import java.util.UUID
 
 enum class TransactionType {
     INCOME, EXPENSE
@@ -14,5 +15,9 @@ data class Category(
     val type: TransactionType,
     val iconName: String,
     val colorCode: String,
-    val displayOrder: Int
+    val displayOrder: Int,
+    // 同期用フィールド
+    val syncId: String = UUID.randomUUID().toString(),
+    val updatedAt: Long = System.currentTimeMillis(),
+    val isDeleted: Boolean = false
 )

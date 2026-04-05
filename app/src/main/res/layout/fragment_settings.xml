@@ -76,7 +76,51 @@
             android:text="テスト用(ダミーデータ初期化)"
             android:textColor="@android:color/holo_red_dark"
             app:strokeColor="@android:color/holo_red_dark"
-            style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_marginBottom="32dp" />
+
+        <!-- Googleドライブ同期セクション -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="クラウド同期"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="16dp"/>
+
+        <TextView
+            android:id="@+id/tv_sync_status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="未ログイン"
+            android:textSize="14sp"
+            android:layout_marginBottom="8dp"/>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_google_sign_in"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Googleアカウントでログイン"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_marginBottom="8dp"/>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_sync_now"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="今すぐ同期"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_marginBottom="8dp"
+            android:enabled="false"/>
+
+        <TextView
+            android:id="@+id/tv_last_sync"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="最終同期: --"
+            android:textSize="12sp"
+            android:textColor="@android:color/darker_gray"
+            android:layout_marginBottom="16dp"/>
 
     </LinearLayout>
 </ScrollView>

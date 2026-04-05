@@ -1,5 +1,6 @@
 package com.example.myapplication.ui.settings
 
+import android.app.DatePickerDialog
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -10,6 +11,8 @@ import com.example.myapplication.data.entity.Category
 import com.example.myapplication.data.entity.FixedCostSetting
 import com.example.myapplication.databinding.DialogFixedCostBinding
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 
 class FixedCostBottomSheet(
     private val categories: List<Category>,
@@ -20,6 +23,8 @@ class FixedCostBottomSheet(
 
     private var _binding: DialogFixedCostBinding? = null
     private val binding get() = _binding!!
+    private var selectedEndDate: LocalDate? = null
+    private val dateFormatter = DateTimeFormatter.ofPattern("yyyy/MM/dd")
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = DialogFixedCostBinding.inflate(inflater, container, false)
@@ -47,8 +52,38 @@ class FixedCostBottomSheet(
             binding.etDay.setText(existingSetting.dayOfMonth.toString())
             binding.etMemo.setText(existingSetting.name)
             binding.btnDelete.visibility = View.VISIBLE
+
+            // 終了日の復元
+            if (existingSetting.endDate != null) {
+                selectedEndDate = existingSetting.endDate
+                binding.tvEndDate.text = "終了日: ${existingSetting.endDate.format(dateFormatter)}"
+            }
         } else {
             binding.btnDelete.visibility = View.GONE
+        }
+
+        // 終了日タップでDatePicker表示
+        binding.tvEndDate.setOnClickListener {
+            val base = selectedEndDate ?: LocalDate.now().plusMonths(12)
+            DatePickerDialog(
+                requireContext(),
+                { _, year, month, day ->
+                    selectedEndDate = LocalDate.of(year, month + 1, day)
+                    binding.tvEndDate.text = "終了日: ${selectedEndDate!!.format(dateFormatter)}"
+                },
+                base.year,
+                base.monthValue - 1,
+                base.dayOfMonth
+            ).show()
+        }
+
+        // 長押しで終了日クリア
+        binding.tvEndDate.setOnLongClickListener {
+            selectedEndDate = null
+            binding.tvEndDate.text = ""
+            binding.tvEndDate.hint = "終了日（タップして設定・省略可）"
+            Toast.makeText(requireContext(), "終了日をクリアしました", Toast.LENGTH_SHORT).show()
+            true
         }
 
         binding.btnSave.setOnClickListener {
@@ -70,7 +105,8 @@ class FixedCostBottomSheet(
                 categoryId = selectedCategory.id,
                 frequency = com.example.myapplication.data.entity.Frequency.MONTHLY,
                 dayOfMonth = day,
-                startDate = existingSetting?.startDate ?: java.time.LocalDate.now()
+                startDate = existingSetting?.startDate ?: LocalDate.now(),
+                endDate = selectedEndDate
             )
             onSave(result)
             dismiss()

@@ -11,6 +11,9 @@ import com.example.myapplication.data.entity.FixedCostSetting
 import com.example.myapplication.data.entity.Preset
 import com.example.myapplication.data.entity.QuotaSetting
 import com.example.myapplication.data.entity.TransactionType
+import com.example.myapplication.data.sync.DriveHelper
+import com.example.myapplication.data.sync.SyncEngine
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -21,6 +24,7 @@ import java.time.LocalDate
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository: AppRepository
+    val syncEngine: SyncEngine
 
     val allCategories: StateFlow<List<Category>>
     val allDailyData: StateFlow<List<DailyData>>
@@ -67,6 +71,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             SharingStarted.Eagerly,
             emptyList()
         )
+
+        syncEngine = SyncEngine(repository)
     }
 
     // --- Category ---
@@ -81,6 +87,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun insertDailyData(data: DailyData) = viewModelScope.launch { repository.insertDailyData(data) }
     fun updateDailyData(data: DailyData) = viewModelScope.launch { repository.updateDailyData(data) }
     fun deleteDailyData(data: DailyData) = viewModelScope.launch { repository.deleteDailyData(data) }
+    fun deleteAllDailyData() = viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) { repository.deleteAllDailyData() }
 
     // --- FixedCostSetting ---
     fun insertFixedCostSetting(setting: FixedCostSetting) = viewModelScope.launch { repository.insertFixedCostSetting(setting) }
@@ -97,6 +104,36 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun updatePreset(preset: Preset) = viewModelScope.launch { repository.updatePreset(preset) }
     fun deletePreset(preset: Preset) = viewModelScope.launch { repository.deletePreset(preset) }
     fun incrementPresetUsageCount(id: Int) = viewModelScope.launch { repository.incrementPresetUsageCount(id) }
+
+    // --- Sync ---
+    fun performSync(driveHelper: DriveHelper, onComplete: (Boolean, String) -> Unit) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                // 1. Drive からリモートデータを読み込み
+                val remoteJson = driveHelper.readSyncFile()
+
+                // 2. リモートが存在する場合はマージ
+                if (remoteJson != null) {
+                    val remoteData = syncEngine.fromJson(remoteJson)
+                    syncEngine.mergeFromRemote(remoteData)
+                }
+
+                // 3. マージ後のローカルデータを Drive に書き戻し
+                val localData = syncEngine.exportToSyncData()
+                val json = syncEngine.toJson(localData)
+                val writeSuccess = driveHelper.writeSyncFile(json)
+
+                if (writeSuccess) {
+                    onComplete(true, "")
+                } else {
+                    onComplete(false, "Drive への書き込みに失敗")
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                onComplete(false, e.message ?: "不明なエラー")
+            }
+        }
+    }
 
     // --- CSV Export / Import ---
     fun exportCsv(uri: android.net.Uri, context: android.content.Context) = viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
@@ -115,8 +152,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun importCsv(uri: android.net.Uri, context: android.content.Context) = viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+    fun importCsv(uri: android.net.Uri, context: android.content.Context, clearFirst: Boolean = false) = viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
         try {
+            if (clearFirst) {
+                repository.deleteAllDailyData()
+            }
             context.contentResolver.openInputStream(uri)?.use { input ->
                 val reader = java.io.BufferedReader(java.io.InputStreamReader(input))
                 val headerLine = reader.readLine() // ヘッダー

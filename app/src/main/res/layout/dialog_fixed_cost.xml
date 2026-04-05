@@ -41,6 +41,19 @@
         android:layout_height="wrap_content"
         android:hint="メモ(設定名など)"
         android:inputType="text"
+        android:layout_marginBottom="16dp" />
+
+    <TextView
+        android:id="@+id/tv_end_date"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:gravity="center_vertical"
+        android:hint="終了日（タップして設定・省略可）"
+        android:text=""
+        android:textSize="16sp"
+        android:background="?attr/selectableItemBackground"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp"
         android:layout_marginBottom="24dp" />
 
     <LinearLayout

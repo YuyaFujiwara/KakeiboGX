@@ -3,6 +3,7 @@ package com.example.myapplication.data.entity
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import java.time.LocalDate
+import java.util.UUID
 
 enum class Frequency {
     MONTHLY, WEEKLY, YEARLY
@@ -25,5 +26,9 @@ data class FixedCostSetting(
     val startDate: LocalDate,
     val endDate: LocalDate? = null,
     val dayOffOption: DayOffOption = DayOffOption.NONE,
-    val lastInsertedToDailyData: LocalDate? = null // 最後にDailyDataに自動挿入した日
+    val lastInsertedToDailyData: LocalDate? = null, // 最後にDailyDataに自動挿入した日
+    // 同期用フィールド
+    val syncId: String = UUID.randomUUID().toString(),
+    val updatedAt: Long = System.currentTimeMillis(),
+    val isDeleted: Boolean = false
 )

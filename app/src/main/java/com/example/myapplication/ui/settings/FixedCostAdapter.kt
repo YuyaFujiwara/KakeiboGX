@@ -21,7 +21,19 @@ class FixedCostAdapter(
     inner class ViewHolder(private val binding: ItemFixedCostBinding) : RecyclerView.ViewHolder(binding.root) {
         fun bind(item: FixedCostItemVO) {
             binding.tvCategoryName.text = item.categoryName
-            binding.tvMemoAndDay.text = "毎月${item.entity.dayOfMonth}日 - ${item.entity.name}"
+            
+            val dateInfo = buildString {
+                append("毎月${item.entity.dayOfMonth}日 - ${item.entity.name}")
+                if (item.entity.endDate != null) {
+                    val formatter = java.time.format.DateTimeFormatter.ofPattern("yyyy/MM/dd")
+                    if (item.entity.endDate.isBefore(java.time.LocalDate.now())) {
+                        append(" (終了)")
+                    } else {
+                        append(" 〜${item.entity.endDate.format(formatter)}")
+                    }
+                }
+            }
+            binding.tvMemoAndDay.text = dateInfo
             
             if (item.isIncome) {
                 binding.tvAmount.text = "+¥%,d".format(item.entity.amount)

@@ -35,4 +35,7 @@ interface DailyDataDao {
 
     @Delete
     suspend fun deleteDailyData(data: DailyData)
+
+    @Query("DELETE FROM daily_data")
+    suspend fun deleteAllDailyData()
 }
