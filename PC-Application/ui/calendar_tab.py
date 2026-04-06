@@ -29,7 +29,7 @@ class CalendarTab:
                        command=self._next_month).pack(side="left", padx=5, pady=5)
 
         # === カレンダーグリッド ===
-        self.cal_frame = ctk.CTkFrame(self.parent, height=270)
+        self.cal_frame = ctk.CTkFrame(self.parent, height=310)
         self.cal_frame.grid_propagate(False)
         self.cal_frame.pack(fill="x", padx=10, pady=5)
 
@@ -147,15 +147,15 @@ class CalendarTab:
 
                 # 日付
                 day_color = "#FF6B6B" if day_idx == 6 else ("#6BA3FF" if day_idx == 5 else "#CCCCCC")
-                ctk.CTkLabel(cell, text=str(day), font=("", 12, "bold"),
+                ctk.CTkLabel(cell, text=str(day), font=("", 12, "bold"), height=16,
                               text_color=day_color).pack(anchor="nw", padx=3, pady=(2, 0))
 
                 inc, exp = day_totals.get(day, (0, 0))
                 if inc > 0:
-                    ctk.CTkLabel(cell, text=f"+{inc:,}", font=("", 10),
+                    ctk.CTkLabel(cell, text=f"+{inc:,}", font=("", 10), height=14,
                                   text_color="#4FC3F7", anchor="e").pack(fill="x", padx=3, pady=0)
                 if exp > 0:
-                    ctk.CTkLabel(cell, text=f"-{exp:,}", font=("", 10),
+                    ctk.CTkLabel(cell, text=f"-{exp:,}", font=("", 10), height=14,
                                   text_color="#EF5350", anchor="e").pack(fill="x", padx=3, pady=0)
 
     def _update_daily_list(self):
