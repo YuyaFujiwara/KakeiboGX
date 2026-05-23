@@ -34,6 +34,7 @@ class DailyData:
     type: str = "EXPENSE"
     category_sync_id: str = ""
     fixed_cost_setting_sync_id: Optional[str] = None
+    payment_method: Optional[str] = None  # "CASH", "CARD", or None (未設定)
     is_deleted: bool = False
     updated_at: int = field(default_factory=_now_millis)
 

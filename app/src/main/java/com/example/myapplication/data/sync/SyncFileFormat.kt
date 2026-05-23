@@ -33,6 +33,7 @@ data class SyncDailyData(
     val type: String,
     val categorySyncId: String, // Category の syncId で参照
     val fixedCostSettingSyncId: String? = null,
+    val paymentMethod: String? = null, // "CASH", "CARD", or null
     val isDeleted: Boolean = false,
     val updatedAt: Long
 )

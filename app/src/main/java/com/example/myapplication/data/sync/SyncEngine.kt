@@ -183,6 +183,7 @@ class SyncEngine(private val repository: AppRepository) {
         syncId = syncId, date = date.toString(), amount = amount, memo = memo,
         type = type.name, categorySyncId = catIdToSyncId[categoryId] ?: "",
         fixedCostSettingSyncId = null, // TODO: fixedCostSettingのsyncId参照
+        paymentMethod = paymentMethod,
         isDeleted = isDeleted, updatedAt = updatedAt
     )
 
@@ -220,6 +221,7 @@ class SyncEngine(private val repository: AppRepository) {
     private fun SyncDailyData.toEntity(categoryId: Int, localId: Long = 0) = DailyData(
         id = localId, date = LocalDate.parse(date), amount = amount, memo = memo,
         type = TransactionType.valueOf(type), categoryId = categoryId,
+        paymentMethod = paymentMethod,
         syncId = syncId, updatedAt = updatedAt, isDeleted = isDeleted
     )
 

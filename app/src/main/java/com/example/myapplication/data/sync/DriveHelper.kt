@@ -16,8 +16,10 @@ import com.google.api.client.json.gson.GsonFactory
 import com.google.api.services.drive.Drive
 import com.google.api.services.drive.DriveScopes
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
+import kotlin.coroutines.resume
 
 /**
  * Google Drive 上の kakeibo_sync.json を読み書きするヘルパー。
@@ -54,6 +56,17 @@ class DriveHelper(private val context: Context) {
     }
 
     fun getAccount(): GoogleSignInAccount? = GoogleSignIn.getLastSignedInAccount(context)
+
+    suspend fun trySilentSignIn(): Boolean = suspendCancellableCoroutine { cont ->
+        getSignInClient().silentSignIn()
+            .addOnSuccessListener { account ->
+                val success = initDriveService(account)
+                if (cont.isActive) cont.resume(success)
+            }
+            .addOnFailureListener {
+                if (cont.isActive) cont.resume(false)
+            }
+    }
 
     suspend fun signOut() {
         withContext(Dispatchers.Main) {

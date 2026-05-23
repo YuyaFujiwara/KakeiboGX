@@ -30,10 +30,21 @@ class InputFragment : Fragment() {
     private val viewModel: MainViewModel by activityViewModels()
 
     private var currentDate = LocalDate.now()
+    private var isDateExplicitlySet = false
     private var currentType = TransactionType.EXPENSE
     private var currentAmount = 0L
 
     private lateinit var categoryAdapter: CategoryAdapter
+
+    override fun onResume() {
+        super.onResume()
+        if (!isDateExplicitlySet) {
+            currentDate = LocalDate.now()
+            if (_binding != null) {
+                updateDateText()
+            }
+        }
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -56,11 +67,13 @@ class InputFragment : Fragment() {
 
         binding.btnPrevDay.setOnClickListener {
             currentDate = currentDate.minusDays(1)
+            isDateExplicitlySet = true
             updateDateText()
         }
 
         binding.btnNextDay.setOnClickListener {
             currentDate = currentDate.plusDays(1)
+            isDateExplicitlySet = true
             updateDateText()
         }
 
@@ -69,6 +82,7 @@ class InputFragment : Fragment() {
                 requireContext(),
                 { _, year, month, dayOfMonth ->
                     currentDate = LocalDate.of(year, month + 1, dayOfMonth)
+                    isDateExplicitlySet = true
                     updateDateText()
                 },
                 currentDate.year,
@@ -186,13 +200,19 @@ class InputFragment : Fragment() {
             }
 
             val memo = binding.etMemo.text.toString()
+
+            val paymentMethod = when {
+                binding.chipCard.isChecked -> "CARD"
+                else -> "CASH"
+            }
             
             val dailyData = DailyData(
                 date = currentDate,
                 amount = currentAmount,
                 memo = memo,
                 type = currentType,
-                categoryId = selectedCategoryId
+                categoryId = selectedCategoryId,
+                paymentMethod = paymentMethod
             )
 
             viewModel.insertDailyData(dailyData)
@@ -203,6 +223,11 @@ class InputFragment : Fragment() {
             binding.tvAmount.text = "¥0"
             binding.etMemo.text?.clear()
             categoryAdapter.clearSelection()
+            binding.chipCash.isChecked = true
+            
+            isDateExplicitlySet = false
+            currentDate = LocalDate.now()
+            updateDateText()
         }
     }
 

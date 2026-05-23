@@ -229,6 +229,12 @@ class CalendarTab:
             ctk.CTkLabel(row_frame, text=d.memo, anchor="w",
                           font=("", 12)).pack(side="left", fill="x", expand=True, padx=5, pady=2)
 
+            # 支払方法ラベル
+            if d.payment_method:
+                pm_text = "💴" if d.payment_method == "CASH" else "💳"
+                ctk.CTkLabel(row_frame, text=pm_text, width=25, anchor="center",
+                              font=("", 12)).pack(side="right", padx=(0, 2), pady=2)
+
             amount_color = "#4FC3F7" if d.type == "INCOME" else "#EF5350"
             sign = "+" if d.type == "INCOME" else "-"
             ctk.CTkLabel(row_frame, text=f"{sign}¥{d.amount:,}", anchor="e",

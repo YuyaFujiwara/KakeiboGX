@@ -141,6 +141,20 @@
         android:orientation="vertical"
         app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
+        <!-- カード利用サマリ -->
+        <TextView
+            android:id="@+id/tv_summary_card"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:layout_marginStart="16dp"
+            android:layout_marginEnd="16dp"
+            android:gravity="center"
+            android:textColor="#FF9800"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            tools:text="💳 今月のカード利用額（来月支払い分）: ¥50,000" />
+
         <!-- 3. 円グラフ -->
         <com.github.mikephil.charting.charts.PieChart
             android:id="@+id/pie_chart"

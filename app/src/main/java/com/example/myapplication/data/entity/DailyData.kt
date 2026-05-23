@@ -14,6 +14,7 @@ data class DailyData(
     val type: TransactionType,
     val categoryId: Int, // CategoryのID
     val fixedCostSettingId: Long? = null, // 固定費から生成された場合の設定ID
+    val paymentMethod: String? = null, // "CASH", "CARD", or null (未設定)
     // 同期用フィールド
     val syncId: String = UUID.randomUUID().toString(),
     val updatedAt: Long = System.currentTimeMillis(),

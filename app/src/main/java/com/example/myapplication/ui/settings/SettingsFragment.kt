@@ -31,7 +31,7 @@ class SettingsFragment : Fragment() {
 
     private val viewModel: MainViewModel by activityViewModels()
 
-    private lateinit var driveHelper: DriveHelper
+    private val driveHelper get() = viewModel.driveHelper
 
     private val exportLauncher = registerForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
         uri?.let { 
@@ -76,8 +76,6 @@ class SettingsFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-
-        driveHelper = DriveHelper(requireContext())
 
         // 既存のセットアップ
         binding.btnEditCategories.setOnClickListener {
@@ -201,11 +199,6 @@ class SettingsFragment : Fragment() {
                 binding.btnSyncNow.text = "今すぐ同期"
 
                 if (success) {
-                    // 最終同期日時を保存
-                    requireContext().getSharedPreferences("sync_prefs", 0)
-                        .edit()
-                        .putLong("last_sync_time", System.currentTimeMillis())
-                        .apply()
                     updateSyncUI()
                     Toast.makeText(requireContext(), "同期完了", Toast.LENGTH_SHORT).show()
                 } else {

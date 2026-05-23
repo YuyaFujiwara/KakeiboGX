@@ -30,6 +30,13 @@
         android:layout_weight="1"
         tools:text="スーパー" />
     <TextView
+        android:id="@+id/tv_list_payment_method"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="8dp"
+        android:textSize="14sp"
+        tools:text="💳" />
+    <TextView
         android:id="@+id/tv_list_amount"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"

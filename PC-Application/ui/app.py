@@ -20,6 +20,9 @@ class App(ctk.CTk):
         self.sync_file_path = config.SYNC_FILE_PATH
         self.data: SyncData = load_sync_file(self.sync_file_path)
 
+        # 固定費の自動適用
+        self._check_and_apply_fixed_costs()
+
         # タブビュー
         self.tabview = ctk.CTkTabview(self, anchor="nw")
         self.tabview.pack(fill="both", expand=True, padx=10, pady=10)
@@ -63,6 +66,69 @@ class App(ctk.CTk):
         self.calendar_tab.refresh()
         self.report_tab.refresh()
         self.settings_tab.refresh()
+
+    def _check_and_apply_fixed_costs(self):
+        from datetime import date, timedelta
+        import calendar
+        from data.models import DailyData, _now_millis
+        
+        today = date.today()
+        changed = False
+
+        for setting in self.data.fixed_cost_settings:
+            if setting.is_deleted:
+                continue
+            
+            try:
+                start_date = date.fromisoformat(setting.start_date)
+            except ValueError:
+                continue  # 無効な開始日
+                
+            end_limit = today
+            if setting.end_date:
+                try:
+                    ed = date.fromisoformat(setting.end_date)
+                    if ed < today:
+                        end_limit = ed
+                except ValueError:
+                    pass
+            
+            check_date = start_date
+            if setting.last_inserted_to_daily_data:
+                try:
+                    last_ins = date.fromisoformat(setting.last_inserted_to_daily_data)
+                    check_date = last_ins + timedelta(days=1)
+                except ValueError:
+                    pass
+            
+            inserted = False
+            new_last_inserted = setting.last_inserted_to_daily_data
+            
+            while check_date <= end_limit:
+                _, days_in_month = calendar.monthrange(check_date.year, check_date.month)
+                target_day = min(setting.day_of_month, days_in_month)
+                
+                if check_date.day == target_day:
+                    d = DailyData(
+                        date=check_date.isoformat(),
+                        amount=setting.amount,
+                        memo=setting.name,
+                        type=setting.type,
+                        category_sync_id=setting.category_sync_id
+                    )
+                    self.data.daily_data.append(d)
+                    new_last_inserted = check_date.isoformat()
+                    inserted = True
+                
+                check_date += timedelta(days=1)
+                
+            if inserted:
+                setting.last_inserted_to_daily_data = new_last_inserted
+                setting.updated_at = _now_millis()
+                changed = True
+                
+        if changed:
+            self.save_data()
 
     def get_active_categories(self, type_filter: str = None):
         """削除されていないカテゴリのリストを取得"""

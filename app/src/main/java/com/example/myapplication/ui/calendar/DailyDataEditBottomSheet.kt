@@ -51,6 +51,12 @@ class DailyDataEditBottomSheet(
         binding.etAmount.setText(dailyData.amount.toString())
         binding.etMemo.setText(dailyData.memo)
 
+        if (dailyData.paymentMethod == "CARD") {
+            binding.chipCard.isChecked = true
+        } else {
+            binding.chipCash.isChecked = true
+        }
+
         updateDateButtonText()
 
         binding.btnDate.setOnClickListener {
@@ -76,13 +82,16 @@ class DailyDataEditBottomSheet(
             val amount = amountStr.toLongOrNull() ?: 0L
             val memo = binding.etMemo.text.toString()
             val selectedCategory = categories[binding.spinnerCategory.selectedItemPosition]
+            
+            val paymentMethod = if (binding.chipCard.isChecked) "CARD" else "CASH"
 
             val result = dailyData.copy(
                 date = selectedDate,
                 categoryId = selectedCategory.id,
                 type = selectedCategory.type,
                 amount = amount,
-                memo = memo
+                memo = memo,
+                paymentMethod = paymentMethod
             )
             onSave(result)
             dismiss()

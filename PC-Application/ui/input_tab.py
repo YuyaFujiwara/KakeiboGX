@@ -67,6 +67,26 @@ class InputTab:
         self.amount_entry.pack(side="left", padx=5, pady=5)
         ctk.CTkLabel(amount_frame, text="円").pack(side="left", padx=2, pady=5)
 
+        # === 支払方法 ===
+        payment_frame = ctk.CTkFrame(self.parent)
+        payment_frame.pack(fill="x", padx=10, pady=5)
+
+        ctk.CTkLabel(payment_frame, text="支払方法:").pack(side="left", padx=5, pady=5)
+        self.payment_var = ctk.StringVar(value="CASH")
+        self.btn_cash = ctk.CTkButton(
+            payment_frame, text="💴 現金", width=100,
+            command=lambda: self._set_payment("CASH"),
+            fg_color="#43A047", hover_color="#2E7D32"
+        )
+        self.btn_cash.pack(side="left", padx=5, pady=5)
+
+        self.btn_card = ctk.CTkButton(
+            payment_frame, text="💳 カード", width=100,
+            command=lambda: self._set_payment("CARD"),
+            fg_color="#555555", hover_color="#333333"
+        )
+        self.btn_card.pack(side="left", padx=5, pady=5)
+
         # === プリセットボタン ===
         preset_frame = ctk.CTkFrame(self.parent)
         preset_frame.pack(fill="x", padx=10, pady=5)
@@ -103,6 +123,15 @@ class InputTab:
             self.btn_income.configure(fg_color="#1976D2")
         self._refresh_categories()
         self._refresh_presets()
+
+    def _set_payment(self, method: str):
+        self.payment_var.set(method)
+        if method == "CASH":
+            self.btn_cash.configure(fg_color="#43A047")
+            self.btn_card.configure(fg_color="#555555")
+        else:
+            self.btn_cash.configure(fg_color="#555555")
+            self.btn_card.configure(fg_color="#1565C0")
 
     def _prev_day(self):
         self.current_date -= timedelta(days=1)
@@ -212,6 +241,7 @@ class InputTab:
             memo=memo,
             type=self.current_type,
             category_sync_id=self.selected_category_sync_id,
+            payment_method=self.payment_var.get(),
         )
         self.app.data.daily_data.append(daily)
         self.app.save_data()

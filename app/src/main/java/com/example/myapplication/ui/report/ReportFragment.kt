@@ -225,15 +225,31 @@ class ReportFragment : Fragment() {
         val targetList = if (currentType == TransactionType.INCOME) incomeList else expenseList
         val totalAmount = if (currentType == TransactionType.INCOME) totalIncome.toFloat() else totalExpense.toFloat()
 
-        // カテゴリごとの集計
+        val cardExpense = expenseList.filter { it.paymentMethod == "CARD" }.sumOf { it.amount }
+        if (currentType == TransactionType.EXPENSE && cardExpense > 0) {
+            binding.tvSummaryCard.visibility = View.VISIBLE
+            binding.tvSummaryCard.text = "💳 今月のカード利用額（来月支払い分）: ¥%,d".format(cardExpense)
+        } else {
+            binding.tvSummaryCard.visibility = View.GONE
+        }
+
+        // カテゴリごとの集計（支出・収入がなくても予算設定があれば表示する）
+        val typeCategories = currentCategories.filter { it.type == currentType }
         val categoryMap = targetList.groupBy { it.categoryId }.mapValues { entry -> entry.value.sumOf { it.amount } }
         val today = java.time.LocalDate.now()
         val todayMap = targetList.filter { it.date == today }.groupBy { it.categoryId }.mapValues { entry -> entry.value.sumOf { it.amount } }
         
-        val reportItems = categoryMap.mapNotNull { (catId, amount) ->
-            val category = currentCategories.find { it.id == catId } ?: return@mapNotNull null
-            val percent = if (totalAmount > 0) amount / totalAmount else 0f
+        val reportItems = typeCategories.mapNotNull { category ->
+            val catId = category.id
+            val amount = categoryMap[catId] ?: 0L
             val quota = viewModel.allQuotaSettings.value.find { it.categoryId == catId }
+            
+            // 支出が0円で、かつ予算（クォータ）設定もない場合は表示しない
+            if (amount == 0L && quota == null) {
+                return@mapNotNull null
+            }
+
+            val percent = if (totalAmount > 0) amount / totalAmount else 0f
             val todayAmount = todayMap[catId] ?: 0L
             CategoryReportItem(catId, category.name, category.colorCode, amount, percent, quota?.amount ?: 0L, currentMonth, category.displayOrder, todayAmount)
         }.sortedBy { it.displayOrder }

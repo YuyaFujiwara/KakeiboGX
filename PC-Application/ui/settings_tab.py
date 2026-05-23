@@ -243,11 +243,12 @@ class SettingsTab:
         daily = self.app.get_active_daily_data()
         with open(path, "w", newline="", encoding="utf-8-sig") as f:
             writer = csv.writer(f)
-            writer.writerow(["Date", "Category", "Type", "Amount", "Memo"])
+            writer.writerow(["Date", "Category", "Type", "Amount", "Memo", "PaymentMethod"])
             for d in sorted(daily, key=lambda x: x.date):
                 cat = self.app.get_category_by_sync_id(d.category_sync_id)
                 cat_name = cat.name if cat else "?"
-                writer.writerow([d.date, cat_name, d.type, d.amount, d.memo])
+                payment = d.payment_method if d.payment_method else ""
+                writer.writerow([d.date, cat_name, d.type, d.amount, d.memo, payment])
 
     def _reload_data(self):
         self.app.reload_data()

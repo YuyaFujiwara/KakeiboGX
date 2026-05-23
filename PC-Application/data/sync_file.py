@@ -47,6 +47,7 @@ def load_sync_file(path: str) -> SyncData:
             type=d.get("type", "EXPENSE"),
             category_sync_id=d.get("categorySyncId", ""),
             fixed_cost_setting_sync_id=d.get("fixedCostSettingSyncId"),
+            payment_method=d.get("paymentMethod"),
             is_deleted=d.get("isDeleted", False),
             updated_at=d.get("updatedAt", 0),
         ))
@@ -122,6 +123,7 @@ def save_sync_file(path: str, data: SyncData):
                 "memo": d.memo, "type": d.type,
                 "categorySyncId": d.category_sync_id,
                 "fixedCostSettingSyncId": d.fixed_cost_setting_sync_id,
+                "paymentMethod": d.payment_method,
                 "isDeleted": d.is_deleted, "updatedAt": d.updated_at,
             } for d in data.daily_data
         ],

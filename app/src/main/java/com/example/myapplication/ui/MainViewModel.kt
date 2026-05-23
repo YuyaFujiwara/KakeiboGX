@@ -22,6 +22,9 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.collectLatest
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -33,6 +36,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val allFixedCostSettings: StateFlow<List<FixedCostSetting>>
     val allQuotaSettings: StateFlow<List<QuotaSetting>>
     val allPresets: StateFlow<List<Preset>>
+
+    val driveHelper: DriveHelper
+    private val _syncTrigger = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
 
     init {
         val database = AppDatabase.getDatabase(application)
@@ -85,42 +91,110 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             )
 
         syncEngine = SyncEngine(repository)
+        driveHelper = DriveHelper(application)
+
+        // 自動同期（Debounce付き）
+        viewModelScope.launch(Dispatchers.IO) {
+            _syncTrigger.collectLatest {
+                delay(3000) // 3秒間の変更をまとめる
+                if (driveHelper.isSignedIn()) {
+                    performSync(driveHelper) { _, _ -> }
+                }
+            }
+        }
+
+        // 起動時にSilent Sign-Inを試行し、成功したら同期する
+        viewModelScope.launch(Dispatchers.IO) {
+            val success = driveHelper.trySilentSignIn()
+            if (success) {
+                performSync(driveHelper) { _, _ -> }
+            }
+        }
+        
+        // 起動時に固定費の自動チェックを実行
+        checkAndApplyFixedCosts()
+    }
+
+    private fun checkAndApplyFixedCosts() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val settings = repository.allFixedCostSettings.first().filter { !it.isDeleted }
+            val today = LocalDate.now()
+            val endOfMonth = today.withDayOfMonth(today.lengthOfMonth())
+            
+            for (setting in settings) {
+                var checkDate = setting.lastInsertedToDailyData?.plusDays(1) ?: setting.startDate
+                val endLimit = if (setting.endDate != null && setting.endDate.isBefore(endOfMonth)) setting.endDate else endOfMonth
+                
+                var inserted = false
+                var newLastInserted = setting.lastInsertedToDailyData
+                
+                while (!checkDate.isAfter(endLimit)) {
+                    val targetDay = Math.min(setting.dayOfMonth, checkDate.lengthOfMonth())
+                    
+                    if (checkDate.dayOfMonth == targetDay) {
+                        val d = DailyData(
+                            date = checkDate,
+                            categoryId = setting.categoryId,
+                            type = setting.type,
+                            amount = setting.amount,
+                            memo = setting.name // 名前をメモとして使用
+                        )
+                        repository.insertDailyData(d)
+                        newLastInserted = checkDate
+                        inserted = true
+                    }
+                    checkDate = checkDate.plusDays(1)
+                }
+                
+                if (inserted) {
+                    repository.updateFixedCostSetting(setting.copy(
+                        lastInsertedToDailyData = newLastInserted, 
+                        updatedAt = System.currentTimeMillis()
+                    ))
+                }
+            }
+        }
     }
 
     // --- Category ---
-    fun insertCategory(category: Category) = viewModelScope.launch { repository.insertCategory(category) }
-    fun updateCategory(category: Category) = viewModelScope.launch { repository.updateCategory(category.copy(updatedAt = System.currentTimeMillis())) }
-    fun deleteCategory(category: Category) = viewModelScope.launch { repository.updateCategory(category.copy(isDeleted = true, updatedAt = System.currentTimeMillis())) }
+    fun insertCategory(category: Category) = viewModelScope.launch { repository.insertCategory(category); triggerAutoSync() }
+    fun updateCategory(category: Category) = viewModelScope.launch { repository.updateCategory(category.copy(updatedAt = System.currentTimeMillis())); triggerAutoSync() }
+    fun deleteCategory(category: Category) = viewModelScope.launch { repository.updateCategory(category.copy(isDeleted = true, updatedAt = System.currentTimeMillis())); triggerAutoSync() }
     fun updateCategoryOrder(categories: List<Category>) = viewModelScope.launch { 
         val updated = categories.map { it.copy(updatedAt = System.currentTimeMillis()) }
         repository.updateAllCategories(updated) 
+        triggerAutoSync()
     }
 
     // --- DailyData ---
     fun getDailyDataByMonth(startDate: LocalDate, endDate: LocalDate): Flow<List<DailyData>> = repository.getDailyDataByMonth(startDate, endDate).map { list -> list.filter { !it.isDeleted } }
     fun getDailyDataByDate(date: LocalDate): Flow<List<DailyData>> = repository.getDailyDataByDate(date).map { list -> list.filter { !it.isDeleted } }
-    fun insertDailyData(data: DailyData) = viewModelScope.launch { repository.insertDailyData(data) }
-    fun updateDailyData(data: DailyData) = viewModelScope.launch { repository.updateDailyData(data.copy(updatedAt = System.currentTimeMillis())) }
-    fun deleteDailyData(data: DailyData) = viewModelScope.launch { repository.updateDailyData(data.copy(isDeleted = true, updatedAt = System.currentTimeMillis())) }
-    fun deleteAllDailyData() = viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) { repository.deleteAllDailyData() }
+    fun insertDailyData(data: DailyData) = viewModelScope.launch { repository.insertDailyData(data); triggerAutoSync() }
+    fun updateDailyData(data: DailyData) = viewModelScope.launch { repository.updateDailyData(data.copy(updatedAt = System.currentTimeMillis())); triggerAutoSync() }
+    fun deleteDailyData(data: DailyData) = viewModelScope.launch { repository.updateDailyData(data.copy(isDeleted = true, updatedAt = System.currentTimeMillis())); triggerAutoSync() }
+    fun deleteAllDailyData() = viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) { repository.deleteAllDailyData(); triggerAutoSync() }
 
     // --- FixedCostSetting ---
-    fun insertFixedCostSetting(setting: FixedCostSetting) = viewModelScope.launch { repository.insertFixedCostSetting(setting) }
-    fun updateFixedCostSetting(setting: FixedCostSetting) = viewModelScope.launch { repository.updateFixedCostSetting(setting.copy(updatedAt = System.currentTimeMillis())) }
-    fun deleteFixedCostSetting(setting: FixedCostSetting) = viewModelScope.launch { repository.updateFixedCostSetting(setting.copy(isDeleted = true, updatedAt = System.currentTimeMillis())) }
+    fun insertFixedCostSetting(setting: FixedCostSetting) = viewModelScope.launch { repository.insertFixedCostSetting(setting); triggerAutoSync() }
+    fun updateFixedCostSetting(setting: FixedCostSetting) = viewModelScope.launch { repository.updateFixedCostSetting(setting.copy(updatedAt = System.currentTimeMillis())); triggerAutoSync() }
+    fun deleteFixedCostSetting(setting: FixedCostSetting) = viewModelScope.launch { repository.updateFixedCostSetting(setting.copy(isDeleted = true, updatedAt = System.currentTimeMillis())); triggerAutoSync() }
 
     // --- QuotaSetting ---
-    fun insertQuotaSetting(setting: QuotaSetting) = viewModelScope.launch { repository.insertQuotaSetting(setting) }
-    fun updateQuotaSetting(setting: QuotaSetting) = viewModelScope.launch { repository.updateQuotaSetting(setting.copy(updatedAt = System.currentTimeMillis())) }
-    fun deleteQuotaSetting(setting: QuotaSetting) = viewModelScope.launch { repository.updateQuotaSetting(setting.copy(isDeleted = true, updatedAt = System.currentTimeMillis())) }
+    fun insertQuotaSetting(setting: QuotaSetting) = viewModelScope.launch { repository.insertQuotaSetting(setting); triggerAutoSync() }
+    fun updateQuotaSetting(setting: QuotaSetting) = viewModelScope.launch { repository.updateQuotaSetting(setting.copy(updatedAt = System.currentTimeMillis())); triggerAutoSync() }
+    fun deleteQuotaSetting(setting: QuotaSetting) = viewModelScope.launch { repository.updateQuotaSetting(setting.copy(isDeleted = true, updatedAt = System.currentTimeMillis())); triggerAutoSync() }
 
     // --- Preset ---
-    fun insertPreset(preset: Preset) = viewModelScope.launch { repository.insertPreset(preset) }
-    fun updatePreset(preset: Preset) = viewModelScope.launch { repository.updatePreset(preset.copy(updatedAt = System.currentTimeMillis())) }
-    fun deletePreset(preset: Preset) = viewModelScope.launch { repository.updatePreset(preset.copy(isDeleted = true, updatedAt = System.currentTimeMillis())) }
-    fun incrementPresetUsageCount(id: Int) = viewModelScope.launch { repository.incrementPresetUsageCount(id) }
+    fun insertPreset(preset: Preset) = viewModelScope.launch { repository.insertPreset(preset); triggerAutoSync() }
+    fun updatePreset(preset: Preset) = viewModelScope.launch { repository.updatePreset(preset.copy(updatedAt = System.currentTimeMillis())); triggerAutoSync() }
+    fun deletePreset(preset: Preset) = viewModelScope.launch { repository.updatePreset(preset.copy(isDeleted = true, updatedAt = System.currentTimeMillis())); triggerAutoSync() }
+    fun incrementPresetUsageCount(id: Int) = viewModelScope.launch { repository.incrementPresetUsageCount(id); triggerAutoSync() }
 
     // --- Sync ---
+    fun triggerAutoSync() {
+        _syncTrigger.tryEmit(Unit)
+    }
+
     fun performSync(driveHelper: DriveHelper, onComplete: (Boolean, String) -> Unit) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
@@ -137,6 +211,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val localData = syncEngine.exportToSyncData()
                 val json = syncEngine.toJson(localData)
                 driveHelper.writeSyncFile(json) // これが失敗すればExceptionが飛ぶ
+                
+                // 最終同期日時を保存
+                getApplication<Application>().getSharedPreferences("sync_prefs", android.content.Context.MODE_PRIVATE)
+                    .edit()
+                    .putLong("last_sync_time", System.currentTimeMillis())
+                    .apply()
+
                 onComplete(true, "")
             } catch (e: Exception) {
                 e.printStackTrace()

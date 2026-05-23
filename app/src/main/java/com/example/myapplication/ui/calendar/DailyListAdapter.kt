@@ -85,6 +85,16 @@ class DailyListAdapter(
             binding.tvListCategoryName.text = categoryMap[data.categoryId] ?: "不明"
             binding.tvListMemo.text = data.memo
 
+            if (data.paymentMethod == "CARD") {
+                binding.tvListPaymentMethod.text = "💳"
+                binding.tvListPaymentMethod.visibility = android.view.View.VISIBLE
+            } else if (data.paymentMethod == "CASH") {
+                binding.tvListPaymentMethod.text = "現金"
+                binding.tvListPaymentMethod.visibility = android.view.View.VISIBLE
+            } else {
+                binding.tvListPaymentMethod.visibility = android.view.View.GONE
+            }
+
             if (data.type == TransactionType.INCOME) {
                 binding.tvListAmount.text = "+¥%,d".format(data.amount)
                 binding.tvListAmount.setTextColor(0xFF2196F3.toInt()) // 青
