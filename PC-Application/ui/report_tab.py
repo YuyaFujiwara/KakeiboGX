@@ -54,22 +54,26 @@ class ReportTab:
         self.total_label.pack(side="left", expand=True, padx=5, pady=8)
 
         # === 支出/収入 切り替え ===
-        type_frame = ctk.CTkFrame(self.parent)
-        type_frame.pack(fill="x", padx=10, pady=5)
+        self.type_frame = ctk.CTkFrame(self.parent)
+        self.type_frame.pack(fill="x", padx=10, pady=5)
 
         self.btn_expense = ctk.CTkButton(
-            type_frame, text="支出", width=120,
+            self.type_frame, text="支出", width=120,
             command=lambda: self._set_type("EXPENSE"),
             fg_color="#E53935", hover_color="#C62828"
         )
         self.btn_expense.pack(side="left", padx=5, pady=5)
 
         self.btn_income = ctk.CTkButton(
-            type_frame, text="収入", width=120,
+            self.type_frame, text="収入", width=120,
             command=lambda: self._set_type("INCOME"),
             fg_color="#555555", hover_color="#333333"
         )
         self.btn_income.pack(side="left", padx=5, pady=5)
+        
+        # === カード利用額サマリー ===
+        self.card_summary_label = ctk.CTkLabel(self.parent, text="", font=("", 14, "bold"), text_color="#EF5350")
+        self.card_summary_label.pack(fill="x", padx=10, pady=0)
 
         # === メインコンテンツ (上: グラフ、下: リスト) ===
         content_frame = ctk.CTkFrame(self.parent, fg_color="transparent")
@@ -145,13 +149,28 @@ class ReportTab:
             text_color="#4FC3F7" if total >= 0 else "#EF5350"
         )
 
+        # カード利用額の集計と表示
+        card_expense = sum(d.amount for d in month_data if d.type == "EXPENSE" and d.payment_method == "CARD")
+        if self.current_type == "EXPENSE" and card_expense > 0:
+            self.card_summary_label.configure(text=f"💳 今月のカード利用額（来月支払い分）: ¥{card_expense:,}")
+            self.card_summary_label.pack(fill="x", padx=10, pady=5, before=self.type_frame)
+        else:
+            self.card_summary_label.pack_forget()
+
         # カテゴリ別集計
         target_data = [d for d in month_data if d.type == self.current_type]
         cat_totals = {}  # sync_id -> amount
         for d in target_data:
             cat_totals[d.category_sync_id] = cat_totals.get(d.category_sync_id, 0) + d.amount
 
-        total_amount = sum(cat_totals.values())
+        # 未使用（支出0）でも予算(Quota)が設定されているカテゴリを表示リストに加える
+        quotas = {q.category_sync_id: q for q in self.app.get_active_quota_settings()}
+        active_cats = self.app.get_active_categories(self.current_type)
+        for cat in active_cats:
+            if cat.sync_id not in cat_totals and cat.sync_id in quotas:
+                cat_totals[cat.sync_id] = 0
+
+        total_amount = sum(d.amount for d in target_data) # 全体のパーセント計算用には実際の支出合計を使う
 
         # カテゴリ情報を付加してソート
         report_items = []

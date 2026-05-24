@@ -41,6 +41,35 @@ class App(ctk.CTk):
         # タブ切り替え時にデータ更新
         self.tabview.configure(command=self._on_tab_changed)
 
+        # バックグラウンドタスク開始
+        self.last_sync_mtime = 0
+        self._start_background_tasks()
+
+    def _start_background_tasks(self):
+        self._check_file_update()
+        self._check_date_change()
+
+    def _check_file_update(self):
+        import os
+        if os.path.exists(self.sync_file_path):
+            current_mtime = os.path.getmtime(self.sync_file_path)
+            if self.last_sync_mtime != 0 and self.last_sync_mtime < current_mtime:
+                # 自分が保存した直後か外部の変更かに関わらずリロード（自分が保存した場合は中身は同じなので安全）
+                # ユーザーが編集中の場合は競合する可能性があるが、簡易的な同期としてリロードする
+                self.reload_data()
+            self.last_sync_mtime = current_mtime
+        self.after(5000, self._check_file_update)
+
+    def _check_date_change(self):
+        from datetime import date
+        today = date.today()
+        # 日を跨いだ場合にInputTabの日付を更新し、固定費を再チェック
+        if hasattr(self, 'input_tab') and self.input_tab.current_date < today:
+            self.input_tab.current_date = today
+            self.input_tab.refresh()
+            self._check_and_apply_fixed_costs()
+        self.after(60000, self._check_date_change)
+
     def _on_tab_changed(self):
         """タブが切り替わった時にデータを再描画"""
         current = self.tabview.get()
@@ -57,7 +86,10 @@ class App(ctk.CTk):
 
     def reload_data(self):
         """JSONファイルからデータを再読み込み"""
+        import os
         self.data = load_sync_file(self.sync_file_path)
+        if os.path.exists(self.sync_file_path):
+            self.last_sync_mtime = os.path.getmtime(self.sync_file_path)
         self._refresh_all()
 
     def _refresh_all(self):
@@ -73,6 +105,9 @@ class App(ctk.CTk):
         from data.models import DailyData, _now_millis
         
         today = date.today()
+        _, last_day = calendar.monthrange(today.year, today.month)
+        month_end = date(today.year, today.month, last_day)
+        
         changed = False
 
         for setting in self.data.fixed_cost_settings:
@@ -84,11 +119,11 @@ class App(ctk.CTk):
             except ValueError:
                 continue  # 無効な開始日
                 
-            end_limit = today
+            end_limit = month_end
             if setting.end_date:
                 try:
                     ed = date.fromisoformat(setting.end_date)
-                    if ed < today:
+                    if ed < month_end:
                         end_limit = ed
                 except ValueError:
                     pass
