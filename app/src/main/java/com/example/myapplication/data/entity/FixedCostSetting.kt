@@ -26,6 +26,7 @@ data class FixedCostSetting(
     val startDate: LocalDate,
     val endDate: LocalDate? = null,
     val dayOffOption: DayOffOption = DayOffOption.NONE,
+    val paymentMethod: String = "CARD",
     val lastInsertedToDailyData: LocalDate? = null, // 最後にDailyDataに自動挿入した日
     // 同期用フィールド
     val syncId: String = UUID.randomUUID().toString(),

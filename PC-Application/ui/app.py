@@ -1,4 +1,5 @@
 """メインウィンドウ - タブ切り替え"""
+# pyrefly: ignore [missing-import]
 import customtkinter as ctk
 from data.models import SyncData
 from data.sync_file import load_sync_file, save_sync_file
@@ -149,7 +150,8 @@ class App(ctk.CTk):
                         amount=setting.amount,
                         memo=setting.name,
                         type=setting.type,
-                        category_sync_id=setting.category_sync_id
+                        category_sync_id=setting.category_sync_id,
+                        payment_method=setting.payment_method
                     )
                     self.data.daily_data.append(d)
                     new_last_inserted = check_date.isoformat()

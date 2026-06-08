@@ -66,6 +66,7 @@ def load_sync_file(path: str) -> SyncData:
             start_date=fc.get("startDate", ""),
             end_date=fc.get("endDate"),
             day_off_option=fc.get("dayOffOption", "NONE"),
+            payment_method=fc.get("paymentMethod", "CARD"),
             last_inserted_to_daily_data=fc.get("lastInsertedToDailyData"),
             is_deleted=fc.get("isDeleted", False),
             updated_at=fc.get("updatedAt", 0),
@@ -134,6 +135,7 @@ def save_sync_file(path: str, data: SyncData):
                 "frequency": fc.frequency, "dayOfMonth": fc.day_of_month,
                 "dayOfWeek": fc.day_of_week, "startDate": fc.start_date,
                 "endDate": fc.end_date, "dayOffOption": fc.day_off_option,
+                "paymentMethod": fc.payment_method,
                 "lastInsertedToDailyData": fc.last_inserted_to_daily_data,
                 "isDeleted": fc.is_deleted, "updatedAt": fc.updated_at,
             } for fc in data.fixed_cost_settings

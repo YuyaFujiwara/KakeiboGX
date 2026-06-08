@@ -50,6 +50,7 @@ data class SyncFixedCostSetting(
     val startDate: String,
     val endDate: String? = null,
     val dayOffOption: String = "NONE",
+    val paymentMethod: String? = "CARD",
     val lastInsertedToDailyData: String? = null,
     val isDeleted: Boolean = false,
     val updatedAt: Long

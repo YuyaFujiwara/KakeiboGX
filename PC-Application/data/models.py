@@ -52,6 +52,7 @@ class FixedCostSetting:
     start_date: str = ""
     end_date: Optional[str] = None
     day_off_option: str = "NONE"
+    payment_method: str = "CARD"
     last_inserted_to_daily_data: Optional[str] = None
     is_deleted: bool = False
     updated_at: int = field(default_factory=_now_millis)

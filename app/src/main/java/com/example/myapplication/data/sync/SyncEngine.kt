@@ -193,6 +193,7 @@ class SyncEngine(private val repository: AppRepository) {
         frequency = frequency.name, dayOfMonth = dayOfMonth, dayOfWeek = dayOfWeek,
         startDate = startDate.toString(), endDate = endDate?.toString(),
         dayOffOption = dayOffOption.name,
+        paymentMethod = paymentMethod,
         lastInsertedToDailyData = lastInsertedToDailyData?.toString(),
         isDeleted = isDeleted, updatedAt = updatedAt
     )
@@ -232,6 +233,7 @@ class SyncEngine(private val repository: AppRepository) {
         dayOfWeek = dayOfWeek, startDate = LocalDate.parse(startDate),
         endDate = endDate?.let { LocalDate.parse(it) },
         dayOffOption = DayOffOption.valueOf(dayOffOption),
+        paymentMethod = paymentMethod ?: "CARD",
         lastInsertedToDailyData = lastInsertedToDailyData?.let { LocalDate.parse(it) },
         syncId = syncId, updatedAt = updatedAt, isDeleted = isDeleted
     )

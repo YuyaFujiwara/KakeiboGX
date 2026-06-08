@@ -58,8 +58,15 @@ class FixedCostBottomSheet(
                 selectedEndDate = existingSetting.endDate
                 binding.tvEndDate.text = "終了日: ${existingSetting.endDate.format(dateFormatter)}"
             }
+
+            if (existingSetting.paymentMethod == "CARD") {
+                binding.chipCard.isChecked = true
+            } else {
+                binding.chipCash.isChecked = true
+            }
         } else {
             binding.btnDelete.visibility = View.GONE
+            binding.chipCard.isChecked = true
         }
 
         // 終了日タップでDatePicker表示
@@ -97,6 +104,8 @@ class FixedCostBottomSheet(
                 return@setOnClickListener
             }
 
+            val paymentMethod = if (binding.chipCard.isChecked) "CARD" else "CASH"
+
             val result = FixedCostSetting(
                 id = existingSetting?.id ?: 0L,
                 name = memo,
@@ -106,7 +115,8 @@ class FixedCostBottomSheet(
                 frequency = com.example.myapplication.data.entity.Frequency.MONTHLY,
                 dayOfMonth = day,
                 startDate = existingSetting?.startDate ?: LocalDate.now(),
-                endDate = selectedEndDate
+                endDate = selectedEndDate,
+                paymentMethod = paymentMethod
             )
             onSave(result)
             dismiss()

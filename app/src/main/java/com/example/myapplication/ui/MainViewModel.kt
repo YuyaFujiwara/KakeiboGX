@@ -137,7 +137,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                             categoryId = setting.categoryId,
                             type = setting.type,
                             amount = setting.amount,
-                            memo = setting.name // 名前をメモとして使用
+                            memo = setting.name, // 名前をメモとして使用
+                            paymentMethod = setting.paymentMethod
                         )
                         repository.insertDailyData(d)
                         newLastInserted = checkDate
