@@ -228,10 +228,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun exportCsvToDrive(driveHelper: DriveHelper, onComplete: (Boolean, String) -> Unit) {
+    fun exportCsvToDrive(driveHelper: DriveHelper, targetMonth: String? = null, onComplete: (Boolean, String) -> Unit) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val dailyData = repository.allDailyData.first().sortedBy { it.date }
+                val allData = repository.allDailyData.first().sortedBy { it.date }
+                val dailyData = if (targetMonth != null) allData.filter { it.date.toString().startsWith(targetMonth) } else allData
                 val categories = repository.allCategories.first().associateBy { it.id }
 
                 val stringBuilder = StringBuilder()
@@ -261,9 +262,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     // --- CSV Export / Import ---
-    fun exportCsv(uri: android.net.Uri, context: android.content.Context) = viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+    fun exportCsv(uri: android.net.Uri, context: android.content.Context, targetMonth: String? = null) = viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
         try {
-            val data = allDailyData.value
+            val allData = allDailyData.value
+            val data = if (targetMonth != null) allData.filter { it.date.toString().startsWith(targetMonth) } else allData
             context.contentResolver.openOutputStream(uri)?.use { output ->
                 val writer = output.writer()
                 writer.write("Date,CategoryId,Type,Amount,Memo\n")

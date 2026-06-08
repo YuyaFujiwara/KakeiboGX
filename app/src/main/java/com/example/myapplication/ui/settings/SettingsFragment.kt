@@ -33,9 +33,11 @@ class SettingsFragment : Fragment() {
 
     private val driveHelper get() = viewModel.driveHelper
 
+    private var pendingExportTargetMonth: String? = null
+
     private val exportLauncher = registerForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
         uri?.let { 
-            viewModel.exportCsv(it, requireContext()) 
+            viewModel.exportCsv(it, requireContext(), pendingExportTargetMonth) 
             Toast.makeText(requireContext(), "CSVをエクスポートしました", Toast.LENGTH_SHORT).show()
         }
     }
@@ -91,7 +93,11 @@ class SettingsFragment : Fragment() {
         }
 
         binding.btnExportCsv.setOnClickListener {
-            exportLauncher.launch("household_data.csv")
+            showMonthSelectionDialog { targetMonth ->
+                pendingExportTargetMonth = targetMonth
+                val fileName = if (targetMonth != null) "household_data_$targetMonth.csv" else "household_data.csv"
+                exportLauncher.launch(fileName)
+            }
         }
 
         binding.btnExportCsvDrive.setOnClickListener {
@@ -99,17 +105,20 @@ class SettingsFragment : Fragment() {
                 Toast.makeText(requireContext(), "先にGoogleログインしてください", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
-            binding.btnExportCsvDrive.isEnabled = false
-            binding.btnExportCsvDrive.text = "エクスポート中..."
-            viewModel.exportCsvToDrive(driveHelper) { success, msg ->
-                if (!isAdded) return@exportCsvToDrive
-                requireActivity().runOnUiThread {
-                    binding.btnExportCsvDrive.isEnabled = true
-                    binding.btnExportCsvDrive.text = "DriveへCSVエクスポート"
-                    if (success) {
-                        Toast.makeText(requireContext(), "DriveにCSVをエクスポートしました", Toast.LENGTH_SHORT).show()
-                    } else {
-                        Toast.makeText(requireContext(), "エラー: $msg", Toast.LENGTH_LONG).show()
+            
+            showMonthSelectionDialog { targetMonth ->
+                binding.btnExportCsvDrive.isEnabled = false
+                binding.btnExportCsvDrive.text = "エクスポート中..."
+                viewModel.exportCsvToDrive(driveHelper, targetMonth) { success, msg ->
+                    if (!isAdded) return@exportCsvToDrive
+                    requireActivity().runOnUiThread {
+                        binding.btnExportCsvDrive.isEnabled = true
+                        binding.btnExportCsvDrive.text = "DriveへCSVエクスポート"
+                        if (success) {
+                            Toast.makeText(requireContext(), "DriveにCSVをエクスポートしました", Toast.LENGTH_SHORT).show()
+                        } else {
+                            Toast.makeText(requireContext(), "エラー: $msg", Toast.LENGTH_LONG).show()
+                        }
                     }
                 }
             }
@@ -218,6 +227,26 @@ class SettingsFragment : Fragment() {
             Category(name = "給与", type = TransactionType.INCOME, iconName = "ic_money", colorCode = "4CAF50", displayOrder = 1)
         )
         dummies.forEach { viewModel.insertCategory(it) }
+    }
+
+    private fun showMonthSelectionDialog(onMonthSelected: (String?) -> Unit) {
+        val dailyData = viewModel.allDailyData.value
+        val months = dailyData.map {
+            val dateStr = it.date.toString()
+            if (dateStr.length >= 7) dateStr.substring(0, 7) else dateStr
+        }.distinct().sortedDescending()
+
+        val options = mutableListOf("すべて")
+        options.addAll(months)
+
+        android.app.AlertDialog.Builder(requireContext())
+            .setTitle("出力する月を選択")
+            .setItems(options.toTypedArray()) { _, which ->
+                val targetMonth = if (which == 0) null else options[which]
+                onMonthSelected(targetMonth)
+            }
+            .setNegativeButton("キャンセル", null)
+            .show()
     }
 
     override fun onDestroyView() {

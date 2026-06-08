@@ -64,6 +64,7 @@ class InputFragment : Fragment() {
 
     private fun setupUI() {
         updateDateText()
+        binding.chipCard.isChecked = true
 
         binding.btnPrevDay.setOnClickListener {
             currentDate = currentDate.minusDays(1)
@@ -223,7 +224,7 @@ class InputFragment : Fragment() {
             binding.tvAmount.text = "¥0"
             binding.etMemo.text?.clear()
             categoryAdapter.clearSelection()
-            binding.chipCash.isChecked = true
+            binding.chipCard.isChecked = true
             
             isDateExplicitlySet = false
             currentDate = LocalDate.now()

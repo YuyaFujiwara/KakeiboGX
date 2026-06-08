@@ -215,32 +215,74 @@ class SettingsTab:
                           text_color="#4FC3F7" if quota else "#888888").pack(
                 side="left", padx=10, pady=3)
 
+    def _show_month_selection(self, callback):
+        daily = self.app.get_active_daily_data()
+        months = sorted(list(set(d.date[:7] for d in daily if len(d.date) >= 7)), reverse=True)
+        options = ["すべて"] + months
+
+        dialog = ctk.CTkToplevel(self.parent)
+        dialog.title("出力する月を選択")
+        dialog.geometry("300x150")
+        dialog.attributes("-topmost", True)
+        dialog.grab_set()
+
+        ctk.CTkLabel(dialog, text="対象の月を選択してください:").pack(pady=(15, 5))
+
+        selected_var = ctk.StringVar(value=options[0])
+        opt_menu = ctk.CTkOptionMenu(dialog, values=options, variable=selected_var)
+        opt_menu.pack(pady=5)
+
+        def on_ok():
+            val = selected_var.get()
+            target = None if val == "すべて" else val
+            dialog.destroy()
+            callback(target)
+
+        def on_cancel():
+            dialog.destroy()
+
+        btn_frame = ctk.CTkFrame(dialog, fg_color="transparent")
+        btn_frame.pack(pady=(10, 5))
+        ctk.CTkButton(btn_frame, text="OK", width=80, command=on_ok).pack(side="left", padx=10)
+        ctk.CTkButton(btn_frame, text="キャンセル", width=80, fg_color="#555555", hover_color="#333333", command=on_cancel).pack(side="left", padx=10)
+
     def _export_csv_local(self):
-        path = filedialog.asksaveasfilename(
-            defaultextension=".csv",
-            filetypes=[("CSV files", "*.csv")],
-            initialfile="household_data.csv"
-        )
-        if not path:
-            return
-        self._write_csv(path)
-        messagebox.showinfo("完了", f"CSVをエクスポートしました:\n{path}")
+        def on_selected(target_month):
+            filename = f"household_data_{target_month}.csv" if target_month else "household_data.csv"
+            path = filedialog.asksaveasfilename(
+                defaultextension=".csv",
+                filetypes=[("CSV files", "*.csv")],
+                initialfile=filename
+            )
+            if not path:
+                return
+            self._write_csv(path, target_month)
+            messagebox.showinfo("完了", f"CSVをエクスポートしました:\n{path}")
+            
+        self._show_month_selection(on_selected)
 
     def _export_csv_drive(self):
-        drive_dir = os.path.dirname(self.app.sync_file_path)
-        if not os.path.exists(drive_dir):
-            messagebox.showerror("エラー", "Driveの同期フォルダが見つかりません。")
-            return
-            
-        path = os.path.join(drive_dir, "household_data.csv")
-        try:
-            self._write_csv(path)
-            messagebox.showinfo("完了", f"DriveにCSVを直接エクスポートしました:\n{path}")
-        except Exception as e:
-            messagebox.showerror("エラー", f"書き込みに失敗しました:\n{e}")
+        def on_selected(target_month):
+            drive_dir = os.path.dirname(self.app.sync_file_path)
+            if not os.path.exists(drive_dir):
+                messagebox.showerror("エラー", "Driveの同期フォルダが見つかりません。")
+                return
+                
+            filename = f"household_data_{target_month}.csv" if target_month else "household_data.csv"
+            path = os.path.join(drive_dir, filename)
+            try:
+                self._write_csv(path, target_month)
+                messagebox.showinfo("完了", f"DriveにCSVを直接エクスポートしました:\n{path}")
+            except Exception as e:
+                messagebox.showerror("エラー", f"書き込みに失敗しました:\n{e}")
+                
+        self._show_month_selection(on_selected)
 
-    def _write_csv(self, path):
+    def _write_csv(self, path, target_month=None):
         daily = self.app.get_active_daily_data()
+        if target_month:
+            daily = [d for d in daily if d.date.startswith(target_month)]
+            
         with open(path, "w", newline="", encoding="utf-8-sig") as f:
             writer = csv.writer(f)
             writer.writerow(["Date", "Category", "Type", "Amount", "Memo", "PaymentMethod"])

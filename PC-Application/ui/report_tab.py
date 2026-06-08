@@ -1,15 +1,17 @@
 """レポートタブ - 円グラフとカテゴリ別集計"""
+# pyrefly: ignore [missing-import]
 import customtkinter as ctk
 from datetime import date
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib
+import matplotlib.patches
+from ui.category_report_window import CategoryReportWindow
+
 matplotlib.use("TkAgg")
 # 日本語フォント設定
 matplotlib.rcParams['font.family'] = 'Yu Gothic'
 matplotlib.rcParams['axes.unicode_minus'] = False
-
-from ui.category_report_window import CategoryReportWindow
 
 
 
@@ -284,8 +286,3 @@ class ReportTab:
         if hasattr(self, "report_window") and self.report_window.winfo_exists():
             self.report_window.destroy()
         self.report_window = CategoryReportWindow(self.parent.winfo_toplevel(), self.app, category)
-
-
-
-# matplotlib patches import
-import matplotlib.patches

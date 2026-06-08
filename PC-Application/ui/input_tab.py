@@ -1,4 +1,5 @@
 """入力タブ - 支出/収入の入力画面"""
+# pyrefly: ignore [missing-import]
 import customtkinter as ctk
 from datetime import date, timedelta
 from data.models import DailyData, _now_millis
@@ -111,6 +112,9 @@ class InputTab:
             fg_color="#1976D2", hover_color="#1565C0"
         )
         self.submit_btn.pack(fill="x", padx=10, pady=10)
+
+        # デフォルトをカードに設定
+        self._set_payment("CARD")
 
     def _set_type(self, t: str):
         self.current_type = t
