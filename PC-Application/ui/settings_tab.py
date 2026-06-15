@@ -1,4 +1,5 @@
 """設定タブ - カテゴリ編集、プリセット管理、データ管理"""
+# pyrefly: ignore [missing-import]
 import customtkinter as ctk
 from tkinter import messagebox, filedialog
 from data.models import Category, Preset, QuotaSetting, _now_millis, _new_sync_id

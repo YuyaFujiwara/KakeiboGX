@@ -2,22 +2,30 @@
 import json
 import os
 from typing import Optional
+import time
 from data.models import (
     SyncData, Category, DailyData, FixedCostSetting,
     Preset, QuotaSetting, _now_millis
 )
 
 
-def load_sync_file(path: str) -> SyncData:
-    """JSONファイルを読み込んで SyncData を返す。ファイルが無ければ空の SyncData。"""
+def load_sync_file(path: str) -> Optional[SyncData]:
+    """JSONファイルを読み込んで SyncData を返す。ファイルが無ければ空の SyncData。
+       読み込みエラー（JSON破損や排他ロック等）の場合は None を返す。"""
     if not os.path.exists(path):
         return SyncData()
 
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            raw = json.load(f)
-    except (json.JSONDecodeError, IOError):
-        return SyncData()
+    raw = None
+    for _ in range(5):
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                raw = json.load(f)
+            break
+        except (json.JSONDecodeError, IOError):
+            time.sleep(0.5)
+
+    if raw is None:
+        return None
 
     data = SyncData(
         version=raw.get("version", 1),

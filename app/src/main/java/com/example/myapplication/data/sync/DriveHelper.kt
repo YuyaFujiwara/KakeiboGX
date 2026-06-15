@@ -52,7 +52,7 @@ class DriveHelper(private val context: Context) {
 
     fun isSignedIn(): Boolean {
         val account = GoogleSignIn.getLastSignedInAccount(context)
-        return account != null && !account.isExpired
+        return account != null && GoogleSignIn.hasPermissions(account, Scope(DriveScopes.DRIVE))
     }
 
     fun getAccount(): GoogleSignInAccount? = GoogleSignIn.getLastSignedInAccount(context)

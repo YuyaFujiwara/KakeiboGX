@@ -83,9 +83,9 @@ class ReportTab:
 
         # 円グラフ
         chart_frame = ctk.CTkFrame(content_frame)
-        chart_frame.pack(side="top", fill="both", expand=True, padx=5, pady=(0, 5))
+        chart_frame.pack(side="top", fill="x", expand=False, padx=5, pady=(0, 5))
 
-        self.fig = Figure(figsize=(4, 3.5), dpi=100, facecolor='#2b2b2b')
+        self.fig = Figure(figsize=(4, 2.5), dpi=100, facecolor='#2b2b2b')
         self.ax = self.fig.add_subplot(111)
         self.canvas = FigureCanvasTkAgg(self.fig, master=chart_frame)
         self.canvas.get_tk_widget().pack(fill="both", expand=True, padx=5, pady=5)

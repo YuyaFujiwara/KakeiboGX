@@ -19,7 +19,19 @@ class App(ctk.CTk):
 
         # データ読み込み
         self.sync_file_path = config.SYNC_FILE_PATH
-        self.data: SyncData = load_sync_file(self.sync_file_path)
+        
+        # Googleドライブがマウントされているかチェック（パスのドライブレターが存在するか）
+        import os
+        from tkinter import messagebox
+        drive_letter = os.path.splitdrive(self.sync_file_path)[0]
+        if drive_letter and not os.path.exists(drive_letter + "\\"):
+            messagebox.showwarning(
+                "Googleドライブ未接続", 
+                f"同期先のドライブ ({drive_letter}) が見つかりません。\nGoogle Drive for Desktopが起動しているか確認してください。\n\n※このまま起動するとデータは空になります。"
+            )
+
+        loaded_data = load_sync_file(self.sync_file_path)
+        self.data: SyncData = loaded_data if loaded_data is not None else SyncData()
 
         # 固定費の自動適用
         self._check_and_apply_fixed_costs()
@@ -88,7 +100,11 @@ class App(ctk.CTk):
     def reload_data(self):
         """JSONファイルからデータを再読み込み"""
         import os
-        self.data = load_sync_file(self.sync_file_path)
+        new_data = load_sync_file(self.sync_file_path)
+        if new_data is None:
+            return  # 読み込みエラー時は現在のデータを保持する
+        
+        self.data = new_data
         if os.path.exists(self.sync_file_path):
             self.last_sync_mtime = os.path.getmtime(self.sync_file_path)
         self._refresh_all()
