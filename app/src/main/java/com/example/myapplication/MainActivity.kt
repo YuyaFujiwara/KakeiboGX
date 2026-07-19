@@ -1,28 +1,20 @@
 package com.example.myapplication
 
 import android.os.Bundle
-import androidx.appcompat.app.AppCompatActivity
-import androidx.navigation.fragment.NavHostFragment
-import androidx.navigation.ui.setupWithNavController
-import com.example.myapplication.databinding.ActivityMainBinding
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.core.view.WindowCompat
+import com.example.myapplication.ui.compose.MainNavigation
 
-class MainActivity : AppCompatActivity() {
-
-    private lateinit var binding: ActivityMainBinding
-
+class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // ViewBindingのセットアップ
-        binding = ActivityMainBinding.inflate(layoutInflater)
-        setContentView(binding.root)
+        // Edge-to-edge support for drawing behind the transparent navigation bar
+        WindowCompat.setDecorFitsSystemWindows(window, false)
 
-        // Navigation Componentのセットアップ
-        val navHostFragment = supportFragmentManager
-            .findFragmentById(R.id.nav_host_fragment_activity_main) as NavHostFragment
-        val navController = navHostFragment.navController
-        
-        // BottomNavigationViewとNavControllerを紐付け
-        binding.navView.setupWithNavController(navController)
+        setContent {
+            MainNavigation()
+        }
     }
 }

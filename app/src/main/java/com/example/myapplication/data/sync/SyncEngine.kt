@@ -214,33 +214,33 @@ class SyncEngine(private val repository: AppRepository) {
     // --- Sync → Room Entity ---
 
     private fun SyncCategory.toEntity(localId: Int = 0) = Category(
-        id = localId, name = name, type = TransactionType.valueOf(type),
-        iconName = iconName, colorCode = colorCode, displayOrder = displayOrder,
+        id = localId, name = name ?: "Unknown", type = TransactionType.valueOf(type ?: "EXPENSE"),
+        iconName = iconName ?: "ic_category_default", colorCode = colorCode ?: "2196F3", displayOrder = displayOrder ?: 0,
         syncId = syncId, updatedAt = updatedAt, isDeleted = isDeleted
     )
 
     private fun SyncDailyData.toEntity(categoryId: Int, localId: Long = 0) = DailyData(
-        id = localId, date = LocalDate.parse(date), amount = amount, memo = memo,
-        type = TransactionType.valueOf(type), categoryId = categoryId,
+        id = localId, date = LocalDate.parse(date ?: LocalDate.now().toString()), amount = amount, memo = memo ?: "",
+        type = TransactionType.valueOf(type ?: "EXPENSE"), categoryId = categoryId,
         paymentMethod = paymentMethod,
         syncId = syncId, updatedAt = updatedAt, isDeleted = isDeleted
     )
 
     private fun SyncFixedCostSetting.toEntity(categoryId: Int, localId: Long = 0) = FixedCostSetting(
-        id = localId, name = name, amount = amount,
-        type = TransactionType.valueOf(type), categoryId = categoryId,
-        frequency = Frequency.valueOf(frequency), dayOfMonth = dayOfMonth,
-        dayOfWeek = dayOfWeek, startDate = LocalDate.parse(startDate),
+        id = localId, name = name ?: "", amount = amount,
+        type = TransactionType.valueOf(type ?: "EXPENSE"), categoryId = categoryId,
+        frequency = Frequency.valueOf(frequency ?: "MONTHLY"), dayOfMonth = dayOfMonth,
+        dayOfWeek = dayOfWeek, startDate = LocalDate.parse(startDate ?: LocalDate.now().toString()),
         endDate = endDate?.let { LocalDate.parse(it) },
-        dayOffOption = DayOffOption.valueOf(dayOffOption),
+        dayOffOption = DayOffOption.valueOf(dayOffOption ?: "NONE"),
         paymentMethod = paymentMethod ?: "CARD",
         lastInsertedToDailyData = lastInsertedToDailyData?.let { LocalDate.parse(it) },
         syncId = syncId, updatedAt = updatedAt, isDeleted = isDeleted
     )
 
     private fun SyncPreset.toEntity(categoryId: Int?, localId: Int = 0) = Preset(
-        id = localId, memo = memo, amount = amount, categoryId = categoryId,
-        type = TransactionType.valueOf(type), usageCount = usageCount,
+        id = localId, memo = memo ?: "", amount = amount, categoryId = categoryId,
+        type = TransactionType.valueOf(type ?: "EXPENSE"), usageCount = usageCount,
         displayOrder = displayOrder,
         syncId = syncId, updatedAt = updatedAt, isDeleted = isDeleted
     )

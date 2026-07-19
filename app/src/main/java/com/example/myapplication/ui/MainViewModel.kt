@@ -14,6 +14,7 @@ import com.example.myapplication.data.entity.TransactionType
 import com.example.myapplication.data.sync.DriveHelper
 import com.example.myapplication.data.sync.SyncEngine
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -219,12 +220,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     .putLong("last_sync_time", System.currentTimeMillis())
                     .apply()
 
-                onComplete(true, "")
+                withContext(Dispatchers.Main) {
+                    onComplete(true, "")
+                }
             } catch (e: Exception) {
                 e.printStackTrace()
                 // 例外のメッセージを取り出して表示に含める
                 val errorMsg = e.message ?: e.javaClass.simpleName
-                onComplete(false, "詳細: $errorMsg")
+                withContext(Dispatchers.Main) {
+                    onComplete(false, "詳細: $errorMsg")
+                }
             }
         }
     }
@@ -250,14 +255,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val csvContent = "\uFEFF" + stringBuilder.toString()
                 
                 val writeSuccess = driveHelper.writeCsvFile(csvContent)
-                if (writeSuccess) {
-                    onComplete(true, "")
-                } else {
-                    onComplete(false, "Drive 書き込み失敗")
+                withContext(Dispatchers.Main) {
+                    if (writeSuccess) {
+                        onComplete(true, "")
+                    } else {
+                        onComplete(false, "Drive 書き込み失敗")
+                    }
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
-                onComplete(false, "詳細: " + (e.message ?: e.javaClass.simpleName))
+                withContext(Dispatchers.Main) {
+                    onComplete(false, "詳細: " + (e.message ?: e.javaClass.simpleName))
+                }
             }
         }
     }

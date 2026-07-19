@@ -81,18 +81,18 @@ class ReportTab:
         content_frame = ctk.CTkFrame(self.parent, fg_color="transparent")
         content_frame.pack(fill="both", expand=True, padx=10, pady=5)
 
-        # 円グラフ
+        # 円グラフ (左側)
         chart_frame = ctk.CTkFrame(content_frame)
-        chart_frame.pack(side="top", fill="x", expand=False, padx=5, pady=(0, 5))
+        chart_frame.pack(side="left", fill="y", expand=False, padx=5, pady=5)
 
-        self.fig = Figure(figsize=(4, 2.5), dpi=100, facecolor='#2b2b2b')
+        self.fig = Figure(figsize=(4.5, 4.5), dpi=100, facecolor='#2b2b2b')
         self.ax = self.fig.add_subplot(111)
         self.canvas = FigureCanvasTkAgg(self.fig, master=chart_frame)
         self.canvas.get_tk_widget().pack(fill="both", expand=True, padx=5, pady=5)
 
-        # カテゴリリスト
+        # カテゴリリスト (右側)
         self.list_frame = ctk.CTkScrollableFrame(content_frame)
-        self.list_frame.pack(side="top", fill="both", expand=True, padx=0, pady=(5, 0))
+        self.list_frame.pack(side="left", fill="both", expand=True, padx=(5, 0), pady=5)
 
     def _set_type(self, t: str):
         self.current_type = t

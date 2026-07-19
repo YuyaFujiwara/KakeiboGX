@@ -24,5 +24,10 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".ui.compose.ComposeShowcaseActivity"
+            android:exported="false"
+            android:theme="@style/Theme.MyApplication" />
+
     </application>
 </manifest>
