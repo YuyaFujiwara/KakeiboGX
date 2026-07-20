@@ -13,6 +13,7 @@
 .externalNativeBuild
 .cxx
 local.properties
-sekkei.md
 speaki.png
 build.bat
+logcat_dump.txt
+dummy.json
