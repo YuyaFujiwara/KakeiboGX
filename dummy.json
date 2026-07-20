@@ -1,1 +1,0 @@
-{"fixedCostSettings": [{"syncId": "1", "name": "test", "amount": 100, "type": "EXPENSE", "categorySyncId": "1", "frequency": "MONTHLY", "dayOfMonth": 1, "dayOfWeek": -1, "startDate": "2023-01-01", "endDate": null, "dayOffOption": "NONE", "paymentMethod": "CARD", "lastInsertedToDailyData": null, "isDeleted": false, "updatedAt": 0}]}
