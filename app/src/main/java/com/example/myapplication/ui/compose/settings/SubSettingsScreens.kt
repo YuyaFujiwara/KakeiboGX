@@ -131,6 +131,7 @@ fun FixedCostScreen(
     val fixedCosts by viewModel.allFixedCostSettings.collectAsState()
     val categories by viewModel.allCategories.collectAsState()
     var showAddDialog by remember { mutableStateOf(false) }
+    var editingFixedCost by remember { mutableStateOf<FixedCostSetting?>(null) }
     val context = LocalContext.current
 
     Scaffold(
@@ -154,6 +155,7 @@ fun FixedCostScreen(
             items(fixedCosts) { fc ->
                 val catName = categories.find { it.id == fc.categoryId }?.name ?: "不明"
                 ListItem(
+                    modifier = Modifier.clickable { editingFixedCost = fc },
                     headlineContent = { Text(fc.name.ifEmpty { "名称未設定" }) },
                     supportingContent = { 
                         Column {
@@ -177,18 +179,23 @@ fun FixedCostScreen(
         }
     }
 
-    if (showAddDialog) {
-        var memo by remember { mutableStateOf("") }
-        var amount by remember { mutableStateOf("") }
-        var day by remember { mutableStateOf("1") }
-        var selectedCat by remember { mutableStateOf(categories.firstOrNull()) }
-        var startDateStr by remember { mutableStateOf(LocalDate.now().toString()) }
-        var endDateStr by remember { mutableStateOf("") }
+    if (showAddDialog || editingFixedCost != null) {
+        var memo by remember { mutableStateOf(editingFixedCost?.name ?: "") }
+        var amount by remember { mutableStateOf(editingFixedCost?.amount?.let { if (it > 0) it.toString() else "" } ?: "") }
+        var day by remember { mutableStateOf(editingFixedCost?.dayOfMonth?.toString() ?: "1") }
+        var selectedCat by remember { mutableStateOf(categories.find { it.id == editingFixedCost?.categoryId } ?: categories.firstOrNull()) }
+        var startDateStr by remember { mutableStateOf(editingFixedCost?.startDate?.toString() ?: LocalDate.now().toString()) }
+        var endDateStr by remember { mutableStateOf(editingFixedCost?.endDate?.toString() ?: "") }
         var expanded by remember { mutableStateOf(false) }
 
+        val closeDialog = {
+            showAddDialog = false
+            editingFixedCost = null
+        }
+
         AlertDialog(
-            onDismissRequest = { showAddDialog = false },
-            title = { Text("固定費の追加") },
+            onDismissRequest = closeDialog,
+            title = { Text(if (editingFixedCost != null) "固定費の編集" else "固定費の追加") },
             text = {
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     item {
@@ -237,26 +244,40 @@ fun FixedCostScreen(
                     } else null
                     
                     if (amt > 0 && selectedCat != null && sDate != null) {
-                        viewModel.insertFixedCostSetting(
-                            FixedCostSetting(
-                                name = memo,
-                                type = selectedCat!!.type,
-                                categoryId = selectedCat!!.id,
-                                amount = amt,
-                                frequency = Frequency.MONTHLY,
-                                dayOfMonth = d,
-                                startDate = sDate,
-                                endDate = eDate
+                        if (editingFixedCost != null) {
+                            viewModel.updateFixedCostSetting(
+                                editingFixedCost!!.copy(
+                                    name = memo,
+                                    type = selectedCat!!.type,
+                                    categoryId = selectedCat!!.id,
+                                    amount = amt,
+                                    dayOfMonth = d,
+                                    startDate = sDate,
+                                    endDate = eDate
+                                )
                             )
-                        )
-                        showAddDialog = false
+                        } else {
+                            viewModel.insertFixedCostSetting(
+                                FixedCostSetting(
+                                    name = memo,
+                                    type = selectedCat!!.type,
+                                    categoryId = selectedCat!!.id,
+                                    amount = amt,
+                                    frequency = Frequency.MONTHLY,
+                                    dayOfMonth = d,
+                                    startDate = sDate,
+                                    endDate = eDate
+                                )
+                            )
+                        }
+                        closeDialog()
                     } else {
                         Toast.makeText(context, "入力内容に誤りがあります", Toast.LENGTH_SHORT).show()
                     }
                 }) { Text("保存") }
             },
             dismissButton = {
-                TextButton(onClick = { showAddDialog = false }) { Text("キャンセル") }
+                TextButton(onClick = closeDialog) { Text("キャンセル") }
             }
         )
     }
