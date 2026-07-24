@@ -155,7 +155,14 @@ fun FixedCostScreen(
                 val catName = categories.find { it.id == fc.categoryId }?.name ?: "不明"
                 ListItem(
                     headlineContent = { Text(fc.name.ifEmpty { "名称未設定" }) },
-                    supportingContent = { Text("$catName / 毎月 ${fc.dayOfMonth}日") },
+                    supportingContent = { 
+                        Column {
+                            Text("$catName / 毎月 ${fc.dayOfMonth}日")
+                            val start = fc.startDate.toString()
+                            val end = fc.endDate?.toString() ?: "無期限"
+                            Text("期間: $start 〜 $end", fontSize = 12.sp, color = Color.Gray)
+                        }
+                    },
                     trailingContent = {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text("¥%,d".format(fc.amount), fontWeight = FontWeight.Bold)
