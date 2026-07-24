@@ -131,6 +131,7 @@ fun FixedCostScreen(
     val fixedCosts by viewModel.allFixedCostSettings.collectAsState()
     val categories by viewModel.allCategories.collectAsState()
     var showAddDialog by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
     Scaffold(
         topBar = {
@@ -173,35 +174,77 @@ fun FixedCostScreen(
         var memo by remember { mutableStateOf("") }
         var amount by remember { mutableStateOf("") }
         var day by remember { mutableStateOf("1") }
-        var selectedCatId by remember { mutableStateOf(categories.firstOrNull()?.id ?: 0) }
+        var selectedCat by remember { mutableStateOf(categories.firstOrNull()) }
+        var startDateStr by remember { mutableStateOf(LocalDate.now().toString()) }
+        var endDateStr by remember { mutableStateOf("") }
+        var expanded by remember { mutableStateOf(false) }
 
         AlertDialog(
             onDismissRequest = { showAddDialog = false },
             title = { Text("固定費の追加") },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(value = memo, onValueChange = { memo = it }, label = { Text("メモ") })
-                    OutlinedTextField(value = amount, onValueChange = { amount = it }, label = { Text("金額") })
-                    OutlinedTextField(value = day, onValueChange = { day = it }, label = { Text("日付 (1-31)") })
+                LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    item {
+                        ExposedDropdownMenuBox(
+                            expanded = expanded,
+                            onExpandedChange = { expanded = !expanded }
+                        ) {
+                            OutlinedTextField(
+                                value = selectedCat?.name ?: "カテゴリ選択",
+                                onValueChange = {},
+                                readOnly = true,
+                                label = { Text("カテゴリ") },
+                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                                modifier = Modifier.menuAnchor()
+                            )
+                            ExposedDropdownMenu(
+                                expanded = expanded,
+                                onDismissRequest = { expanded = false }
+                            ) {
+                                categories.forEach { cat ->
+                                    DropdownMenuItem(
+                                        text = { Text(cat.name) },
+                                        onClick = {
+                                            selectedCat = cat
+                                            expanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    item { OutlinedTextField(value = memo, onValueChange = { memo = it }, label = { Text("メモ") }) }
+                    item { OutlinedTextField(value = amount, onValueChange = { amount = it }, label = { Text("金額") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)) }
+                    item { OutlinedTextField(value = day, onValueChange = { day = it }, label = { Text("引落し日 (1-31)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)) }
+                    item { OutlinedTextField(value = startDateStr, onValueChange = { startDateStr = it }, label = { Text("開始日 (YYYY-MM-DD)") }) }
+                    item { OutlinedTextField(value = endDateStr, onValueChange = { endDateStr = it }, label = { Text("終了日 (YYYY-MM-DD / 空白可)") }, placeholder = { Text("例: 2030-12-31") }) }
                 }
             },
             confirmButton = {
                 TextButton(onClick = {
                     val amt = amount.toLongOrNull() ?: 0L
                     val d = day.toIntOrNull()?.coerceIn(1, 31) ?: 1
-                    if (amt > 0) {
+                    val sDate = try { LocalDate.parse(startDateStr) } catch (e: Exception) { null }
+                    val eDate = if (endDateStr.isNotBlank()) {
+                        try { LocalDate.parse(endDateStr) } catch (e: Exception) { null }
+                    } else null
+                    
+                    if (amt > 0 && selectedCat != null && sDate != null) {
                         viewModel.insertFixedCostSetting(
                             FixedCostSetting(
                                 name = memo,
-                                type = TransactionType.EXPENSE,
-                                categoryId = selectedCatId,
+                                type = selectedCat!!.type,
+                                categoryId = selectedCat!!.id,
                                 amount = amt,
                                 frequency = Frequency.MONTHLY,
                                 dayOfMonth = d,
-                                startDate = LocalDate.now()
+                                startDate = sDate,
+                                endDate = eDate
                             )
                         )
                         showAddDialog = false
+                    } else {
+                        Toast.makeText(context, "入力内容に誤りがあります", Toast.LENGTH_SHORT).show()
                     }
                 }) { Text("保存") }
             },
