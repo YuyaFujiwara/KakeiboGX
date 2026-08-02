@@ -28,6 +28,8 @@ fun DailyDataEditSheet(
     var amountText by remember { mutableStateOf(dailyData.amount.toString()) }
     var memoText by remember { mutableStateOf(dailyData.memo) }
     var selectedCategoryId by remember { mutableStateOf(dailyData.categoryId) }
+    var dateText by remember { mutableStateOf(dailyData.date.toString()) }
+    var paymentMethod by remember { mutableStateOf(dailyData.paymentMethod ?: "CASH") }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -58,6 +60,25 @@ fun DailyDataEditSheet(
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true
             )
+
+            OutlinedTextField(
+                value = dateText,
+                onValueChange = { dateText = it },
+                label = { Text("日付 (YYYY-MM-DD)") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+
+            if (dailyData.type == com.example.myapplication.data.entity.TransactionType.EXPENSE) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("支払方法:", modifier = Modifier.padding(end = 8.dp), fontWeight = FontWeight.SemiBold)
+                    RadioButton(selected = paymentMethod == "CASH", onClick = { paymentMethod = "CASH" })
+                    Text("現金")
+                    Spacer(modifier = Modifier.width(16.dp))
+                    RadioButton(selected = paymentMethod == "CARD", onClick = { paymentMethod = "CARD" })
+                    Text("カード")
+                }
+            }
 
             Text("カテゴリ", fontWeight = FontWeight.SemiBold)
             
@@ -104,7 +125,14 @@ fun DailyDataEditSheet(
                 Button(
                     onClick = {
                         val newAmount = amountText.toLongOrNull() ?: dailyData.amount
-                        onSave(dailyData.copy(amount = newAmount, memo = memoText, categoryId = selectedCategoryId))
+                        val newDate = try { java.time.LocalDate.parse(dateText) } catch (e: Exception) { dailyData.date }
+                        onSave(dailyData.copy(
+                            amount = newAmount, 
+                            memo = memoText, 
+                            categoryId = selectedCategoryId,
+                            date = newDate,
+                            paymentMethod = if (dailyData.type == com.example.myapplication.data.entity.TransactionType.EXPENSE) paymentMethod else null
+                        ))
                         onDismiss()
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF007AFF)),

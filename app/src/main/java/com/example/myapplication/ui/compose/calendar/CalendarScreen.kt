@@ -143,7 +143,7 @@ fun CalendarScreen(viewModel: MainViewModel = viewModel(LocalContext.current as 
                             Column(
                                 modifier = Modifier
                                     .weight(1f)
-                                    .aspectRatio(0.8f)
+                                    .aspectRatio(1.2f)
                                     .clip(RoundedCornerShape(8.dp))
                                     .background(bgColor)
                                     .clickable { selectedDate = date }
@@ -176,7 +176,7 @@ fun CalendarScreen(viewModel: MainViewModel = viewModel(LocalContext.current as 
                                 }
                             }
                         } else {
-                            Spacer(modifier = Modifier.weight(1f).aspectRatio(0.8f))
+                            Spacer(modifier = Modifier.weight(1f).aspectRatio(1.2f))
                         }
                         dayCounter++
                     }
