@@ -14,7 +14,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material3.*
@@ -26,10 +26,13 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.myapplication.data.entity.Category
@@ -48,12 +51,31 @@ fun InputScreen(
     val categories by viewModel.allCategories.collectAsState()
     val presets by viewModel.allPresets.collectAsState()
 
+    // 「今日」を状態として保持し、日付を跨いだときに追従できるようにする
+    var today by remember { mutableStateOf(LocalDate.now()) }
     var currentDate by remember { mutableStateOf(LocalDate.now()) }
     var currentType by remember { mutableStateOf(TransactionType.EXPENSE) }
     var currentAmount by remember { mutableStateOf(0L) }
     var memo by remember { mutableStateOf("") }
     var selectedCategoryId by remember { mutableStateOf<Int?>(null) }
-    var isCardPayment by remember { mutableStateOf(false) }
+    var isCardPayment by remember { mutableStateOf(true) }
+
+    // アプリを開いたまま日付が変わった場合、「今日」を見ていたときだけ新しい今日へ移す。
+    // 過去日を明示的に選んでいる場合はその日付を維持する。
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                val now = LocalDate.now()
+                if (now != today) {
+                    if (currentDate == today) currentDate = now
+                    today = now
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     var showCalculator by remember { mutableStateOf(false) }
     var showPresets by remember { mutableStateOf(false) }
@@ -98,6 +120,30 @@ fun InputScreen(
                 .padding(16.dp)
         ) {
             // Date Switcher
+            // DatePickerDialog は再コンポーズごとに作り直さず一度だけ生成し、
+            // 表示前に updateDate で現在の日付に合わせる。
+            val datePickerDialog = remember {
+                android.app.DatePickerDialog(
+                    context,
+                    { _, year, month, dayOfMonth ->
+                        currentDate = LocalDate.of(year, month + 1, dayOfMonth)
+                    },
+                    currentDate.year,
+                    currentDate.monthValue - 1,
+                    currentDate.dayOfMonth
+                )
+            }
+            val openDatePicker = {
+                datePickerDialog.updateDate(
+                    currentDate.year,
+                    currentDate.monthValue - 1,
+                    currentDate.dayOfMonth
+                )
+                datePickerDialog.show()
+            }
+
+            val isToday = currentDate == today
+
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -107,18 +153,57 @@ fun InputScreen(
                 IconButton(onClick = { currentDate = currentDate.minusDays(1) }) {
                     Icon(Icons.Default.KeyboardArrowLeft, contentDescription = "前日")
                 }
-                Text(
-                    text = currentDate.format(DateTimeFormatter.ofPattern("yyyy/MM/dd (E)")),
-                    modifier = Modifier.weight(1f),
-                    textAlign = TextAlign.Center,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                IconButton(onClick = { navController?.navigate("calendar") }) {
-                    Icon(Icons.Default.DateRange, contentDescription = "カレンダー")
+
+                // 日付表示そのものをタップ領域にする（アイコンだけより当てやすく、
+                // 「カレンダー画面へ遷移」と誤解されない）
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable(onClick = openDatePicker)
+                        .padding(vertical = 4.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = currentDate.format(DateTimeFormatter.ofPattern("yyyy/MM/dd (E)")),
+                            textAlign = TextAlign.Center,
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isToday) Color.Unspecified else Color(0xFFD97706)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Icon(
+                            Icons.Default.Edit,
+                            contentDescription = "日付を選択",
+                            modifier = Modifier.size(16.dp),
+                            tint = if (isToday) Color.Gray else Color(0xFFD97706)
+                        )
+                    }
+                    // 今日以外の日付を入力しようとしていることを明示する
+                    if (!isToday) {
+                        Text(
+                            text = "今日ではありません",
+                            fontSize = 11.sp,
+                            color = Color(0xFFD97706)
+                        )
+                    }
                 }
+
                 IconButton(onClick = { currentDate = currentDate.plusDays(1) }) {
                     Icon(Icons.Default.KeyboardArrowRight, contentDescription = "翌日")
+                }
+            }
+
+            // 今日から離れているときだけ、今日へ戻る導線を出す
+            if (!isToday) {
+                TextButton(
+                    onClick = { currentDate = today },
+                    modifier = Modifier
+                        .align(Alignment.CenterHorizontally)
+                        .padding(bottom = 8.dp)
+                ) {
+                    Text("今日 (${today.format(DateTimeFormatter.ofPattern("M/d"))}) に戻る", fontSize = 13.sp)
                 }
             }
 
@@ -237,25 +322,27 @@ fun InputScreen(
                 }
             }
 
-            // Payment Method
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                FilterChip(
-                    selected = !isCardPayment,
-                    onClick = { isCardPayment = false },
-                    label = { Text("💴 現金") },
-                    shape = CircleShape
-                )
-                FilterChip(
-                    selected = isCardPayment,
-                    onClick = { isCardPayment = true },
-                    label = { Text("💳 カード") },
-                    shape = CircleShape
-                )
+            // Payment Method（収入では意味を持たないため支出のときだけ表示する）
+            if (currentType == TransactionType.EXPENSE) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FilterChip(
+                        selected = !isCardPayment,
+                        onClick = { isCardPayment = false },
+                        label = { Text("💴 現金") },
+                        shape = CircleShape
+                    )
+                    FilterChip(
+                        selected = isCardPayment,
+                        onClick = { isCardPayment = true },
+                        label = { Text("💳 カード") },
+                        shape = CircleShape
+                    )
+                }
             }
 
             // Submit Button
@@ -271,7 +358,11 @@ fun InputScreen(
                         memo = memo,
                         type = currentType,
                         categoryId = selectedCategoryId!!,
-                        paymentMethod = if (isCardPayment) "CARD" else "CASH"
+                        paymentMethod = if (currentType == TransactionType.EXPENSE) {
+                            if (isCardPayment) "CARD" else "CASH"
+                        } else {
+                            null
+                        }
                     )
                     viewModel.insertDailyData(dailyData)
                     Toast.makeText(context, "登録しました", Toast.LENGTH_SHORT).show()
@@ -280,8 +371,7 @@ fun InputScreen(
                     currentAmount = 0L
                     memo = ""
                     selectedCategoryId = null
-                    isCardPayment = false
-                    currentDate = LocalDate.now()
+                    isCardPayment = true
                 },
                 modifier = Modifier
                     .fillMaxWidth()

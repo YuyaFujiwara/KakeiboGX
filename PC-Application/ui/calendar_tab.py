@@ -2,6 +2,7 @@
 import customtkinter as ctk
 from datetime import date, timedelta
 from data.models import _now_millis
+from ui.dialog_utils import parse_date, parse_amount, make_error_label, setup_modal
 import calendar
 
 
@@ -229,29 +230,148 @@ class CalendarTab:
             ctk.CTkLabel(row_frame, text=d.memo, anchor="w",
                           font=("", 12)).pack(side="left", fill="x", expand=True, padx=5, pady=2)
 
-            # 支払方法ラベル
-            if d.payment_method:
-                pm_text = "💴" if d.payment_method == "CASH" else "💳"
-                ctk.CTkLabel(row_frame, text=pm_text, width=25, anchor="center",
-                              font=("", 12)).pack(side="right", padx=(0, 2), pady=2)
-
-            amount_color = "#4FC3F7" if d.type == "INCOME" else "#EF5350"
-            sign = "+" if d.type == "INCOME" else "-"
-            ctk.CTkLabel(row_frame, text=f"{sign}¥{d.amount:,}", anchor="e",
-                          font=("", 12), text_color=amount_color).pack(side="right", padx=10, pady=2)
-
-            # 削除ボタン
+            # 右端から [金額][支払方法][編集][削除] の順になるよう、逆順でpackする
+            # （side="right" は先にpackしたものが右端に来る）
             del_btn = ctk.CTkButton(
-                row_frame, text="×", width=25, height=22,
+                row_frame, text="削除", width=40, height=22,
                 fg_color="#555555", hover_color="#EF5350",
                 command=lambda entry=d: self._delete_entry(entry)
             )
-            del_btn.pack(side="right", padx=2, pady=2)
+            del_btn.pack(side="right", padx=(2, 10), pady=2)
+
+            edit_btn = ctk.CTkButton(
+                row_frame, text="編集", width=40, height=22,
+                fg_color="#555555", hover_color="#4FC3F7",
+                command=lambda entry=d: self._edit_entry(entry)
+            )
+            edit_btn.pack(side="right", padx=2, pady=2)
+
+            # 支払方法ラベル（未設定でも幅を確保して金額列の位置を揃える）
+            if d.payment_method:
+                pm_text = "💴" if d.payment_method == "CASH" else "💳"
+            else:
+                pm_text = ""
+            ctk.CTkLabel(row_frame, text=pm_text, width=25, anchor="center",
+                          font=("", 12)).pack(side="right", padx=(0, 2), pady=2)
+
+            # 金額（幅を固定して行間で右揃えを維持）
+            amount_color = "#4FC3F7" if d.type == "INCOME" else "#EF5350"
+            sign = "+" if d.type == "INCOME" else "-"
+            ctk.CTkLabel(row_frame, text=f"{sign}¥{d.amount:,}", width=100, anchor="e",
+                          font=("", 12), text_color=amount_color).pack(side="right", padx=(10, 5), pady=2)
 
     def _delete_entry(self, entry):
         from tkinter import messagebox
+        sync_id = entry.sync_id
         if messagebox.askyesno("確認", "このデータを削除しますか？"):
-            entry.is_deleted = True
-            entry.updated_at = _now_millis()
+            # 確認ダイアログ表示中に再読み込みが走っている可能性があるため引き直す
+            target = self._find_daily_data(sync_id)
+            if target is None:
+                self.refresh()
+                return
+            target.is_deleted = True
+            target.updated_at = _now_millis()
             self.app.save_data()
             self.refresh()
+
+    def _find_daily_data(self, sync_id):
+        """syncIdで収支データを引き直す（バックグラウンド再読み込みで
+        オブジェクトが差し替わっている場合に備える）"""
+        for d in self.app.data.daily_data:
+            if d.sync_id == sync_id:
+                return d
+        return None
+
+    def _edit_entry(self, entry):
+        sync_id = entry.sync_id
+        dialog = ctk.CTkToplevel(self.parent)
+        setup_modal(dialog, self.parent, "収支データの編集", 420, 500)
+
+        body = ctk.CTkFrame(dialog, fg_color="transparent")
+        body.pack(fill="both", expand=True)
+
+        ctk.CTkLabel(body, text="日付 (YYYY-MM-DD):", anchor="w").pack(fill="x", padx=20, pady=(10, 0))
+        date_var = ctk.StringVar(value=entry.date)
+        date_entry = ctk.CTkEntry(body, textvariable=date_var, placeholder_text="2026-01-01")
+        date_entry.pack(pady=5, padx=20, fill="x")
+
+        ctk.CTkLabel(body, text="カテゴリ:", anchor="w").pack(fill="x", padx=20, pady=(10, 0))
+        cats = self.app.get_active_categories(entry.type)
+        cat_names = [c.name for c in cats]
+        current_cat = self.app.get_category_by_sync_id(entry.category_sync_id)
+        current_cat_name = current_cat.name if current_cat else (cat_names[0] if cat_names else "")
+        cat_var = ctk.StringVar(value=current_cat_name)
+        if cat_names:
+            ctk.CTkOptionMenu(body, values=cat_names, variable=cat_var).pack(pady=5, padx=20, fill="x")
+        else:
+            ctk.CTkLabel(body, text="※ このタイプのカテゴリが未登録です",
+                          text_color="#888888", anchor="w").pack(fill="x", padx=20, pady=5)
+
+        ctk.CTkLabel(body, text="メモ:", anchor="w").pack(fill="x", padx=20, pady=(10, 0))
+        memo_var = ctk.StringVar(value=entry.memo)
+        ctk.CTkEntry(body, textvariable=memo_var).pack(pady=5, padx=20, fill="x")
+
+        ctk.CTkLabel(body, text="金額:", anchor="w").pack(fill="x", padx=20, pady=(10, 0))
+        amount_var = ctk.StringVar(value=str(entry.amount))
+        ctk.CTkEntry(body, textvariable=amount_var).pack(pady=5, padx=20, fill="x")
+
+        pm_var = ctk.StringVar(value=entry.payment_method if entry.payment_method else "CASH")
+        if entry.type == "EXPENSE":
+            ctk.CTkLabel(body, text="支払方法:", anchor="w").pack(fill="x", padx=20, pady=(10, 0))
+            pm_frame = ctk.CTkFrame(body, fg_color="transparent")
+            pm_frame.pack(fill="x", padx=20, pady=5)
+            ctk.CTkRadioButton(pm_frame, text="現金", variable=pm_var, value="CASH").pack(side="left", padx=(0, 20))
+            ctk.CTkRadioButton(pm_frame, text="カード", variable=pm_var, value="CARD").pack(side="left")
+
+        show_error, clear_error = make_error_label(body)
+
+        def on_save():
+            clear_error()
+
+            date_val, err = parse_date(date_var.get(), "日付")
+            if err:
+                show_error(err)
+                date_entry.focus_set()
+                return
+
+            amount_val, err = parse_amount(amount_var.get(), "金額")
+            if err:
+                show_error(err)
+                return
+
+            target = self._find_daily_data(sync_id)
+            if target is None:
+                show_error("このデータは他の端末で変更または削除されました。画面を更新します。")
+                self.refresh()
+                dialog.after(1200, dialog.destroy)
+                return
+
+            target.date = date_val
+            target.memo = memo_var.get().strip()
+            target.amount = amount_val
+
+            sel_cat_name = cat_var.get()
+            for c in cats:
+                if c.name == sel_cat_name:
+                    target.category_sync_id = c.sync_id
+                    break
+
+            if target.type == "EXPENSE":
+                target.payment_method = pm_var.get()
+            else:
+                target.payment_method = None
+
+            target.updated_at = _now_millis()
+
+            self.app.save_data()
+            self.refresh()
+            dialog.destroy()
+
+        btn_frame = ctk.CTkFrame(dialog, fg_color="transparent")
+        btn_frame.pack(pady=(5, 15))
+        ctk.CTkButton(btn_frame, text="保存", width=100, command=on_save).pack(side="left", padx=10)
+        ctk.CTkButton(btn_frame, text="キャンセル", width=100, fg_color="#555555",
+                       hover_color="#333333", command=dialog.destroy).pack(side="left", padx=10)
+
+        dialog.bind("<Return>", lambda _e: on_save())
+        date_entry.focus_set()

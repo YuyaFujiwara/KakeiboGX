@@ -16,4 +16,5 @@ local.properties
 speaki.png
 build.bat
 logcat_dump.txt
-dummy.json
+dummy.json__pycache__/
+*.pyc
