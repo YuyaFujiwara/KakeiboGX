@@ -96,6 +96,9 @@ class App(ctk.CTk):
     def save_data(self):
         """データをJSONファイルに保存"""
         save_sync_file(self.sync_file_path, self.data)
+        import os
+        if os.path.exists(self.sync_file_path):
+            self.last_sync_mtime = os.path.getmtime(self.sync_file_path)
 
     def reload_data(self):
         """JSONファイルからデータを再読み込み"""

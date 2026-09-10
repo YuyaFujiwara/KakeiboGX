@@ -4,8 +4,14 @@ import customtkinter as ctk
 from tkinter import messagebox, filedialog
 from data.models import Category, Preset, QuotaSetting, _now_millis, _new_sync_id
 from data.sync_file import load_sync_file
+from ui.dialog_utils import (parse_date, parse_amount, parse_day_of_month,
+                             make_error_label, setup_modal)
+from datetime import date
 import csv
 import os
+
+# カテゴリ未登録時にオプションメニューへ出すプレースホルダ
+NO_CATEGORY = "(カテゴリ未登録)"
 
 
 class SettingsTab:
@@ -52,6 +58,19 @@ class SettingsTab:
         self.quota_list_frame = ctk.CTkFrame(main_frame)
         self.quota_list_frame.pack(fill="x", padx=5, pady=5)
 
+        # === 定期収支設定 ===
+        ctk.CTkLabel(main_frame, text="定期収支(固定費)設定", font=("", 16, "bold")).pack(
+            anchor="w", padx=5, pady=(20, 5))
+
+        fc_btn_frame = ctk.CTkFrame(main_frame)
+        fc_btn_frame.pack(fill="x", padx=5, pady=5)
+
+        ctk.CTkButton(fc_btn_frame, text="定期設定を追加",
+                       command=self._add_fixed_cost).pack(side="left", padx=5, pady=5)
+
+        self.fc_list_frame = ctk.CTkFrame(main_frame)
+        self.fc_list_frame.pack(fill="x", padx=5, pady=5)
+
         # === データ管理 ===
         ctk.CTkLabel(main_frame, text="データ管理", font=("", 16, "bold")).pack(
             anchor="w", padx=5, pady=(20, 5))
@@ -87,6 +106,7 @@ class SettingsTab:
         self._refresh_categories()
         self._refresh_presets()
         self._refresh_quotas()
+        self._refresh_fixed_costs()
 
         exists = os.path.exists(self.app.sync_file_path)
         status = "✓ ファイルあり" if exists else "✗ ファイルなし"
@@ -296,3 +316,272 @@ class SettingsTab:
     def _reload_data(self):
         self.app.reload_data()
         messagebox.showinfo("完了", "データを再読み込みしました")
+
+    def _refresh_fixed_costs(self):
+        for widget in self.fc_list_frame.winfo_children():
+            widget.destroy()
+
+        fc_settings = [fc for fc in self.app.data.fixed_cost_settings if not fc.is_deleted]
+        if not fc_settings:
+            ctk.CTkLabel(self.fc_list_frame, text="定期設定はまだありません",
+                          text_color="#888888", font=("", 12), anchor="w").pack(
+                fill="x", padx=10, pady=6)
+            return
+
+        today = date.today()
+        for fc in fc_settings:
+            row = ctk.CTkFrame(self.fc_list_frame, fg_color="transparent")
+            row.pack(fill="x", pady=1)
+
+            cat = self.app.get_category_by_sync_id(fc.category_sync_id)
+            cat_name = cat.name if cat else "カテゴリ未設定"
+            name = fc.name if fc.name else "名称未設定"
+
+            # 期間（終了日を過ぎたものは失効として明示する）
+            start = fc.start_date if fc.start_date else "?"
+            end = fc.end_date if fc.end_date else "無期限"
+            expired = False
+            if fc.end_date:
+                try:
+                    expired = date.fromisoformat(fc.end_date) < today
+                except ValueError:
+                    pass
+
+            # 収入/支出を符号と色で区別する（カレンダータブと同じ表現）
+            is_income = fc.type == "INCOME"
+            sign = "+" if is_income else "-"
+            amount_color = "#4FC3F7" if is_income else "#EF5350"
+            if expired:
+                amount_color = "#888888"
+
+            text_frame = ctk.CTkFrame(row, fg_color="transparent")
+            text_frame.pack(side="left", fill="x", expand=True, padx=10, pady=3)
+
+            title = f"[{cat_name}] {name}"
+            if expired:
+                title += "（終了）"
+            ctk.CTkLabel(text_frame, text=title, font=("", 12), anchor="w",
+                          text_color="#888888" if expired else None).pack(fill="x")
+            ctk.CTkLabel(text_frame, text=f"毎月{fc.day_of_month}日 / 期間: {start} 〜 {end}",
+                          font=("", 11), text_color="#888888", anchor="w").pack(fill="x")
+
+            btn_frame = ctk.CTkFrame(row, fg_color="transparent")
+            btn_frame.pack(side="right", padx=5, pady=3)
+
+            ctk.CTkLabel(btn_frame, text=f"{sign}¥{fc.amount:,}", width=100, anchor="e",
+                          font=("", 12, "bold"), text_color=amount_color).pack(
+                side="left", padx=(0, 10))
+
+            ctk.CTkButton(btn_frame, text="編集", width=40, height=25,
+                           fg_color="#555555", hover_color="#4FC3F7",
+                           command=lambda f=fc: self._edit_fixed_cost(f)).pack(side="left", padx=2)
+
+            ctk.CTkButton(btn_frame, text="削除", width=40, height=25,
+                           fg_color="#555555", hover_color="#EF5350",
+                           command=lambda f=fc: self._delete_fixed_cost(f)).pack(side="left", padx=2)
+
+    def _find_fixed_cost(self, sync_id):
+        """syncIdで定期設定を引き直す（バックグラウンド再読み込み対策）"""
+        for fc in self.app.data.fixed_cost_settings:
+            if fc.sync_id == sync_id:
+                return fc
+        return None
+
+    def _delete_fixed_cost(self, fc):
+        sync_id = fc.sync_id
+        label = fc.name if fc.name else "名称未設定"
+        if messagebox.askyesno("確認", f"「{label}」の定期設定を削除しますか？"):
+            target = self._find_fixed_cost(sync_id)
+            if target is None:
+                self._refresh_fixed_costs()
+                return
+            target.is_deleted = True
+            target.updated_at = _now_millis()
+            self.app.save_data()
+            self._refresh_fixed_costs()
+
+    def _add_fixed_cost(self):
+        from data.models import FixedCostSetting
+        # データへの追加は保存時に行う。ここで append すると、ダイアログを×で
+        # 閉じられた場合に空の設定が残ってしまう。
+        fc = FixedCostSetting(
+            sync_id=_new_sync_id(),
+            name="",
+            amount=0,
+            type="EXPENSE",
+            category_sync_id="",
+            frequency="MONTHLY",
+            day_of_month=1,
+            start_date=date.today().isoformat()
+        )
+        self._edit_fixed_cost(fc, is_new=True)
+
+    def _edit_fixed_cost(self, fc, is_new=False):
+        sync_id = fc.sync_id
+        dialog = ctk.CTkToplevel(self.parent)
+        setup_modal(dialog, self.parent, "定期設定の追加" if is_new else "定期設定の編集", 460, 600)
+
+        body = ctk.CTkScrollableFrame(dialog, fg_color="transparent")
+        body.pack(fill="both", expand=True, padx=5, pady=5)
+
+        # 名称
+        ctk.CTkLabel(body, text="メモ/名称:", anchor="w").pack(fill="x", padx=20, pady=(10, 0))
+        name_var = ctk.StringVar(value=fc.name)
+        name_entry = ctk.CTkEntry(body, textvariable=name_var, placeholder_text="家賃、電気代など")
+        name_entry.pack(pady=5, padx=20, fill="x")
+
+        # 金額（0は空欄にして、消してから入力する手間をなくす）
+        ctk.CTkLabel(body, text="金額:", anchor="w").pack(fill="x", padx=20, pady=(10, 0))
+        amount_var = ctk.StringVar(value=str(fc.amount) if fc.amount else "")
+        ctk.CTkEntry(body, textvariable=amount_var, placeholder_text="50000").pack(
+            pady=5, padx=20, fill="x")
+
+        # タイプ
+        ctk.CTkLabel(body, text="タイプ:", anchor="w").pack(fill="x", padx=20, pady=(10, 0))
+        type_frame = ctk.CTkFrame(body, fg_color="transparent")
+        type_frame.pack(fill="x", padx=20, pady=5)
+        type_var = ctk.StringVar(value=fc.type)
+        ctk.CTkRadioButton(type_frame, text="支出", variable=type_var, value="EXPENSE").pack(
+            side="left", padx=(0, 20))
+        ctk.CTkRadioButton(type_frame, text="収入", variable=type_var, value="INCOME").pack(side="left")
+
+        # 支払方法（支出のときだけ表示する。収入では保存時に None になるため）
+        pm_var = ctk.StringVar(value=fc.payment_method if fc.payment_method else "CARD")
+        pm_label = ctk.CTkLabel(body, text="支払方法:", anchor="w")
+        pm_frame = ctk.CTkFrame(body, fg_color="transparent")
+        ctk.CTkRadioButton(pm_frame, text="現金", variable=pm_var, value="CASH").pack(
+            side="left", padx=(0, 20))
+        ctk.CTkRadioButton(pm_frame, text="カード", variable=pm_var, value="CARD").pack(side="left")
+
+        # カテゴリ
+        cat_label = ctk.CTkLabel(body, text="カテゴリ:", anchor="w")
+        cat_label.pack(fill="x", padx=20, pady=(10, 0))
+        cat_var = ctk.StringVar()
+        opt_menu = ctk.CTkOptionMenu(body, variable=cat_var, values=[NO_CATEGORY])
+        opt_menu.pack(pady=5, padx=20, fill="x")
+
+        # 引落し日
+        ctk.CTkLabel(body, text="引落し日 (1-31):", anchor="w").pack(fill="x", padx=20, pady=(10, 0))
+        day_var = ctk.StringVar(value=str(fc.day_of_month))
+        ctk.CTkEntry(body, textvariable=day_var).pack(pady=5, padx=20, fill="x")
+
+        # 開始日 / 終了日
+        ctk.CTkLabel(body, text="開始日 (YYYY-MM-DD):", anchor="w").pack(fill="x", padx=20, pady=(10, 0))
+        start_var = ctk.StringVar(value=fc.start_date)
+        ctk.CTkEntry(body, textvariable=start_var, placeholder_text="2026-01-01").pack(
+            pady=5, padx=20, fill="x")
+
+        ctk.CTkLabel(body, text="終了日 (空欄なら無期限):", anchor="w").pack(fill="x", padx=20, pady=(10, 0))
+        end_var = ctk.StringVar(value=fc.end_date if fc.end_date else "")
+        ctk.CTkEntry(body, textvariable=end_var, placeholder_text="空欄可").pack(
+            pady=5, padx=20, fill="x")
+
+        show_error, clear_error = make_error_label(body)
+
+        def update_categories(*_args):
+            t = type_var.get()
+
+            # 収入のときは支払方法を隠す（効果のないコントロールを見せない）
+            if t == "EXPENSE":
+                pm_label.pack(fill="x", padx=20, pady=(10, 0), before=cat_label)
+                pm_frame.pack(fill="x", padx=20, pady=5, before=cat_label)
+            else:
+                pm_label.pack_forget()
+                pm_frame.pack_forget()
+
+            cats = self.app.get_active_categories(t)
+            cat_names = [c.name for c in cats]
+            if not cat_names:
+                cat_names = [NO_CATEGORY]
+
+            opt_menu.configure(values=cat_names)
+            current_cat = self.app.get_category_by_sync_id(fc.category_sync_id)
+            if current_cat and current_cat.type == t:
+                cat_var.set(current_cat.name)
+            else:
+                cat_var.set(cat_names[0])
+
+        type_var.trace_add("write", update_categories)
+        update_categories()
+
+        def on_save():
+            clear_error()
+
+            name_val = name_var.get().strip()
+            if not name_val:
+                show_error("メモ/名称を入力してください。")
+                name_entry.focus_set()
+                return
+
+            amount_val, err = parse_amount(amount_var.get(), "金額")
+            if err:
+                show_error(err)
+                return
+
+            type_val = type_var.get()
+            cats = self.app.get_active_categories(type_val)
+            sel_cat_name = cat_var.get()
+            category_sync_id = None
+            for c in cats:
+                if c.name == sel_cat_name:
+                    category_sync_id = c.sync_id
+                    break
+            if category_sync_id is None:
+                show_error("カテゴリを選択してください。このタイプのカテゴリが未登録の場合は、"
+                            "先に「カテゴリ管理」で追加してください。")
+                return
+
+            day_val, err = parse_day_of_month(day_var.get())
+            if err:
+                show_error(err)
+                return
+
+            start_val, err = parse_date(start_var.get(), "開始日")
+            if err:
+                show_error(err)
+                return
+
+            end_val, err = parse_date(end_var.get(), "終了日", allow_empty=True)
+            if err:
+                show_error(err)
+                return
+
+            if end_val and end_val < start_val:
+                show_error("終了日は開始日以降の日付にしてください。")
+                return
+
+            if is_new:
+                target = fc
+            else:
+                target = self._find_fixed_cost(sync_id)
+                if target is None:
+                    show_error("この設定は他の端末で変更または削除されました。画面を更新します。")
+                    self._refresh_fixed_costs()
+                    dialog.after(1200, dialog.destroy)
+                    return
+
+            target.name = name_val
+            target.amount = amount_val
+            target.type = type_val
+            target.payment_method = pm_var.get() if type_val == "EXPENSE" else None
+            target.category_sync_id = category_sync_id
+            target.day_of_month = day_val
+            target.start_date = start_val
+            target.end_date = end_val
+            target.updated_at = _now_millis()
+
+            if is_new:
+                self.app.data.fixed_cost_settings.append(target)
+
+            self.app.save_data()
+            self._refresh_fixed_costs()
+            dialog.destroy()
+
+        btn_frame = ctk.CTkFrame(dialog, fg_color="transparent")
+        btn_frame.pack(pady=(5, 15))
+        ctk.CTkButton(btn_frame, text="保存", width=100, command=on_save).pack(side="left", padx=10)
+        ctk.CTkButton(btn_frame, text="キャンセル", width=100, fg_color="#555555",
+                       hover_color="#333333", command=dialog.destroy).pack(side="left", padx=10)
+
+        dialog.bind("<Return>", lambda _e: on_save())
+        name_entry.focus_set()
