@@ -1,15 +1,25 @@
 """カテゴリ別分析履歴（レポート）ウィンドウ"""
 import customtkinter as ctk
+import tkinter as tk
 from datetime import date, datetime
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib
+from ui.dialog_utils import theme_row_colors
 
 class CategoryReportWindow(ctk.CTkToplevel):
+    # 履歴リストの初回描画件数。カテゴリによっては全期間で1000件を超え、
+    # 一度に描画すると1万個以上のウィジェットになるため分割して描画する。
+    INITIAL_ROWS = 60
+    MORE_ROWS = 100
+
     def __init__(self, parent, app, category):
         super().__init__(parent)
         self.app = app
         self.category = category
+        self._cat_data = []
+        self._day_sums = {}
+        self._visible_rows = self.INITIAL_ROWS
         
         self.title(f"{category.name} のレポート")
         self.geometry("550x700")
@@ -35,7 +45,8 @@ class CategoryReportWindow(ctk.CTkToplevel):
         list_container = ctk.CTkFrame(self)
         list_container.pack(fill="both", expand=True, padx=10, pady=(5, 10))
         
-        ctk.CTkLabel(list_container, text="全期間の履歴", font=("", 14, "bold")).pack(anchor="w", padx=10, pady=(10, 0))
+        self.list_title = ctk.CTkLabel(list_container, text="全期間の履歴", font=("", 14, "bold"))
+        self.list_title.pack(anchor="w", padx=10, pady=(10, 0))
 
         self.list_frame = ctk.CTkScrollableFrame(list_container)
         self.list_frame.pack(fill="both", expand=True, padx=5, pady=5)
@@ -103,9 +114,32 @@ class CategoryReportWindow(ctk.CTkToplevel):
         self.canvas.draw()
 
         # === 履歴リストの描画 ===
+        self._cat_data = cat_data
+        self.list_title.configure(text=f"全期間の履歴 ({len(cat_data):,} 件)")
+
+        # 日ごとの合計を先に1回だけ求める（ヘッダー描画のたびに全期間を
+        # 走査すると件数の2乗のコストになるため）
+        day_sums = {}
+        for x in cat_data:
+            day_sums[x.date] = day_sums.get(x.date, 0) + x.amount
+        self._day_sums = day_sums
+
+        self._render_list()
+
+    def _show_more(self):
+        self._visible_rows += self.MORE_ROWS
+        self._render_list()
+
+    def _render_list(self):
+        for widget in self.list_frame.winfo_children():
+            widget.destroy()
+
+        row_bg, row_fg = theme_row_colors(self.list_frame)
+        total_rows = len(self._cat_data)
+        visible = self._cat_data[:self._visible_rows]
         current_date_str = None
 
-        for d in cat_data:
+        for d in visible:
             if d.date != current_date_str:
                 current_date_str = d.date
                 try:
@@ -117,29 +151,40 @@ class CategoryReportWindow(ctk.CTkToplevel):
                     header_text = d.date
 
                 # その日のカテゴリ収支合計 (このカテゴリのみ)
-                day_entries = [x for x in cat_data if x.date == d.date]
-                day_total = sum(x.amount for x in day_entries)
-                
-                header_frame = ctk.CTkFrame(self.list_frame, fg_color="#333333")
+                day_total = self._day_sums.get(d.date, 0)
+
+                header_frame = tk.Frame(self.list_frame, bg="#333333")
                 header_frame.pack(fill="x", pady=(8, 2))
-                ctk.CTkLabel(header_frame, text=header_text, font=("", 13, "bold"),
-                              anchor="w").pack(side="left", padx=10, pady=4)
-                
+                tk.Label(header_frame, text=header_text, font=("", 13, "bold"),
+                          bg="#333333", fg="#FFFFFF", anchor="w").pack(
+                    side="left", padx=10, pady=4)
+
                 color = "#4FC3F7" if d.type == "INCOME" else "#EF5350"
                 sign = "+" if d.type == "INCOME" else "-"
-                ctk.CTkLabel(header_frame, text=f"{sign}¥{day_total:,}",
-                              font=("", 13), text_color=color,
-                              anchor="e").pack(side="right", padx=10, pady=4)
+                tk.Label(header_frame, text=f"{sign}¥{day_total:,}", font=("", 13),
+                          bg="#333333", fg=color, anchor="e").pack(
+                    side="right", padx=10, pady=4)
 
             # データ行
-            row_frame = ctk.CTkFrame(self.list_frame, fg_color="transparent")
+            row_frame = tk.Frame(self.list_frame, bg=row_bg)
             row_frame.pack(fill="x", pady=1)
 
-            # メモ
-            ctk.CTkLabel(row_frame, text=d.memo if d.memo else "(メモなし)", anchor="w",
-                          font=("", 12)).pack(side="left", fill="x", expand=True, padx=15, pady=2)
+            tk.Label(row_frame, text=d.memo if d.memo else "(メモなし)", anchor="w",
+                      font=("", 12), bg=row_bg, fg=row_fg).pack(
+                side="left", fill="x", expand=True, padx=15, pady=2)
 
             amount_color = "#4FC3F7" if d.type == "INCOME" else "#EF5350"
             sign = "+" if d.type == "INCOME" else "-"
-            ctk.CTkLabel(row_frame, text=f"{sign}¥{d.amount:,}", anchor="e",
-                          font=("", 12), text_color=amount_color).pack(side="right", padx=10, pady=2)
+            tk.Label(row_frame, text=f"{sign}¥{d.amount:,}", anchor="e", width=12,
+                      font=("", 12), bg=row_bg, fg=amount_color).pack(
+                side="right", padx=10, pady=2)
+
+        # 残りがある場合だけ追加読み込みのボタンを出す
+        remaining = total_rows - len(visible)
+        if remaining > 0:
+            ctk.CTkButton(
+                self.list_frame,
+                text=f"残り {remaining} 件を表示",
+                height=28, fg_color="#555555", hover_color="#4FC3F7",
+                command=self._show_more,
+            ).pack(fill="x", padx=40, pady=(10, 4))
