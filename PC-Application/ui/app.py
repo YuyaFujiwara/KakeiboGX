@@ -59,6 +59,10 @@ class App(ctk.CTk):
         # タブ切り替え時にデータ更新
         self.tabview.configure(command=self._on_tab_changed)
 
+        # 入力タブ以外は中身を空のまま構築され、初回表示時の refresh() で
+        # 描画される。起動直後に描画されるよう dirty として登録しておく。
+        self._dirty_tabs.update(self.TAB_NAMES)
+
         # バックグラウンドタスク開始
         self.last_sync_mtime = 0
         self._start_background_tasks()
