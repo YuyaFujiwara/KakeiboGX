@@ -1,9 +1,26 @@
 """ダイアログ共通処理 - 入力検証、モーダル設定、インラインエラー表示"""
 # pyrefly: ignore [missing-import]
 import customtkinter as ctk
+from customtkinter import ThemeManager
 from datetime import date
 
 ERROR_COLOR = "#EF5350"
+
+
+def theme_row_colors(parent):
+    """素のtkウィジェットに CustomTkinter のテーマ色を合わせるための色を返す。
+
+    一覧の行は1行あたり6〜8個のウィジェットになるため、CTkウィジェット
+    （1個あたり1.4〜2.2ms）で組むと数百msかかる。見た目はテーマ色を引き継いだ
+    まま素のtkで描画するために、親フレームの実際の背景色と文字色を解決する。
+
+    戻り値: (背景色, 文字色)
+    """
+    fg_color = parent.cget("fg_color")
+    if fg_color == "transparent":
+        fg_color = ThemeManager.theme["CTkFrame"]["fg_color"]
+    return (parent._apply_appearance_mode(fg_color),
+            parent._apply_appearance_mode(ThemeManager.theme["CTkLabel"]["text_color"]))
 
 
 def parse_date(text, field_name="日付", allow_empty=False):

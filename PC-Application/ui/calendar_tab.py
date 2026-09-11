@@ -1,17 +1,25 @@
 """カレンダータブ - 月間カレンダーと収支リスト"""
 import customtkinter as ctk
+import tkinter as tk
 from datetime import date, timedelta
 from data.models import _now_millis
-from ui.dialog_utils import parse_date, parse_amount, make_error_label, setup_modal
+from ui.dialog_utils import (parse_date, parse_amount, make_error_label, setup_modal,
+                             theme_row_colors)
 import calendar
 
 
 class CalendarTab:
+    # 日別リストの初回描画件数。1か月分を一度に描画すると800個以上のウィジェットに
+    # なり1秒前後かかるため、まず直近分だけ描画して残りはボタンで追加する。
+    INITIAL_ROWS = 40
+    MORE_ROWS = 60
+
     def __init__(self, parent, app):
         self.parent = parent
         self.app = app
         self.current_year = date.today().year
         self.current_month = date.today().month
+        self._visible_rows = self.INITIAL_ROWS
 
         self._build_ui()
 
@@ -69,6 +77,10 @@ class CalendarTab:
         self.list_frame = ctk.CTkScrollableFrame(self.parent)
         self.list_frame.pack(fill="both", expand=True, padx=10, pady=(5, 10))
 
+    def _show_more(self):
+        self._visible_rows += self.MORE_ROWS
+        self._update_daily_list()
+
     def _prev_month(self):
         if self.current_month == 1:
             self.current_month = 12
@@ -86,6 +98,7 @@ class CalendarTab:
         self.refresh()
 
     def refresh(self):
+        self._visible_rows = self.INITIAL_ROWS
         self._update_month_label()
         self._update_calendar()
         self._update_daily_list()
@@ -179,9 +192,24 @@ class CalendarTab:
 
         # 日付でグループ化（降順）
         month_data.sort(key=lambda d: d.date, reverse=True)
-        current_date_str = None
 
-        for d in month_data:
+        # 日ごとの合計を先に1回だけ求める（ヘッダー描画のたびに月全体を
+        # 走査すると件数の2乗のコストになるため）
+        day_sums = {}
+        for x in month_data:
+            inc, exp = day_sums.get(x.date, (0, 0))
+            if x.type == "INCOME":
+                inc += x.amount
+            else:
+                exp += x.amount
+            day_sums[x.date] = (inc, exp)
+
+        total_rows = len(month_data)
+        visible = month_data[:self._visible_rows]
+        current_date_str = None
+        row_bg, row_fg = theme_row_colors(self.list_frame)
+
+        for d in visible:
             if d.date != current_date_str:
                 current_date_str = d.date
                 # 日付ヘッダー
@@ -194,20 +222,19 @@ class CalendarTab:
                     header_text = d.date
 
                 # その日の収支合計
-                day_entries = [x for x in month_data if x.date == d.date]
-                day_income = sum(x.amount for x in day_entries if x.type == "INCOME")
-                day_expense = sum(x.amount for x in day_entries if x.type == "EXPENSE")
+                day_income, day_expense = day_sums.get(d.date, (0, 0))
                 day_total = day_income - day_expense
                 sign = "+" if day_total >= 0 else ""
 
-                header_frame = ctk.CTkFrame(self.list_frame, fg_color="#333333")
+                header_frame = tk.Frame(self.list_frame, bg="#333333")
                 header_frame.pack(fill="x", pady=(8, 2))
-                ctk.CTkLabel(header_frame, text=header_text, font=("", 13, "bold"),
-                              anchor="w").pack(side="left", padx=10, pady=4)
+                tk.Label(header_frame, text=header_text, font=("", 13, "bold"),
+                          bg="#333333", fg="#FFFFFF", anchor="w").pack(
+                    side="left", padx=10, pady=4)
                 color = "#4FC3F7" if day_total >= 0 else "#EF5350"
-                ctk.CTkLabel(header_frame, text=f"{sign}¥{day_total:,}",
-                              font=("", 13), text_color=color,
-                              anchor="e").pack(side="right", padx=10, pady=4)
+                tk.Label(header_frame, text=f"{sign}¥{day_total:,}", font=("", 13),
+                          bg="#333333", fg=color, anchor="e").pack(
+                    side="right", padx=10, pady=4)
 
             # データ行
             cat = self.app.get_category_by_sync_id(d.category_sync_id)
@@ -218,47 +245,57 @@ class CalendarTab:
             except (ValueError, AttributeError):
                 cat_color = "#808080"
 
-            row_frame = ctk.CTkFrame(self.list_frame, fg_color="transparent")
+            row_frame = tk.Frame(self.list_frame, bg=row_bg)
             row_frame.pack(fill="x", pady=1)
 
             # カテゴリ色インジケーター
-            indicator = ctk.CTkFrame(row_frame, width=6, height=16, fg_color=cat_color, corner_radius=3)
-            indicator.pack(side="left", padx=(10, 5))
+            tk.Frame(row_frame, width=6, height=16, bg=cat_color).pack(
+                side="left", padx=(10, 5))
 
-            ctk.CTkLabel(row_frame, text=cat_name, width=80, anchor="w",
-                          font=("", 12)).pack(side="left", padx=2, pady=2)
-            ctk.CTkLabel(row_frame, text=d.memo, anchor="w",
-                          font=("", 12)).pack(side="left", fill="x", expand=True, padx=5, pady=2)
+            tk.Label(row_frame, text=cat_name, width=10, anchor="w", font=("", 12),
+                      bg=row_bg, fg=row_fg).pack(side="left", padx=2, pady=2)
+            tk.Label(row_frame, text=d.memo, anchor="w", font=("", 12),
+                      bg=row_bg, fg=row_fg).pack(
+                side="left", fill="x", expand=True, padx=5, pady=2)
 
             # 右端から [金額][支払方法][編集][削除] の順になるよう、逆順でpackする
             # （side="right" は先にpackしたものが右端に来る）
-            del_btn = ctk.CTkButton(
-                row_frame, text="削除", width=40, height=22,
-                fg_color="#555555", hover_color="#EF5350",
-                command=lambda entry=d: self._delete_entry(entry)
-            )
-            del_btn.pack(side="right", padx=(2, 10), pady=2)
+            tk.Button(row_frame, text="削除", font=("", 10), width=4,
+                       bg="#555555", fg="#FFFFFF", activebackground="#EF5350",
+                       activeforeground="#FFFFFF", relief="flat", bd=0, cursor="hand2",
+                       command=lambda entry=d: self._delete_entry(entry)).pack(
+                side="right", padx=(2, 10), pady=2)
 
-            edit_btn = ctk.CTkButton(
-                row_frame, text="編集", width=40, height=22,
-                fg_color="#555555", hover_color="#4FC3F7",
-                command=lambda entry=d: self._edit_entry(entry)
-            )
-            edit_btn.pack(side="right", padx=2, pady=2)
+            tk.Button(row_frame, text="編集", font=("", 10), width=4,
+                       bg="#555555", fg="#FFFFFF", activebackground="#4FC3F7",
+                       activeforeground="#FFFFFF", relief="flat", bd=0, cursor="hand2",
+                       command=lambda entry=d: self._edit_entry(entry)).pack(
+                side="right", padx=2, pady=2)
 
             # 支払方法ラベル（未設定でも幅を確保して金額列の位置を揃える）
             if d.payment_method:
                 pm_text = "💴" if d.payment_method == "CASH" else "💳"
             else:
                 pm_text = ""
-            ctk.CTkLabel(row_frame, text=pm_text, width=25, anchor="center",
-                          font=("", 12)).pack(side="right", padx=(0, 2), pady=2)
+            tk.Label(row_frame, text=pm_text, width=3, anchor="center", font=("", 12),
+                      bg=row_bg, fg=row_fg).pack(side="right", padx=(0, 2), pady=2)
 
             # 金額（幅を固定して行間で右揃えを維持）
             amount_color = "#4FC3F7" if d.type == "INCOME" else "#EF5350"
             sign = "+" if d.type == "INCOME" else "-"
-            ctk.CTkLabel(row_frame, text=f"{sign}¥{d.amount:,}", width=100, anchor="e",
-                          font=("", 12), text_color=amount_color).pack(side="right", padx=(10, 5), pady=2)
+            tk.Label(row_frame, text=f"{sign}¥{d.amount:,}", width=12, anchor="e",
+                      font=("", 12), bg=row_bg, fg=amount_color).pack(
+                side="right", padx=(10, 5), pady=2)
+
+        # 残りがある場合だけ追加読み込みのボタンを出す
+        remaining = total_rows - len(visible)
+        if remaining > 0:
+            ctk.CTkButton(
+                self.list_frame,
+                text=f"残り {remaining} 件を表示",
+                height=28, fg_color="#555555", hover_color="#4FC3F7",
+                command=self._show_more,
+            ).pack(fill="x", padx=40, pady=(10, 4))
 
     def _delete_entry(self, entry):
         from tkinter import messagebox

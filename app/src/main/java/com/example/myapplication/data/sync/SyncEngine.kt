@@ -167,6 +167,32 @@ class SyncEngine(private val repository: AppRepository) {
                 }
             }
         }
+
+        dedupeQuotaSettings()
+    }
+
+    /**
+     * 予算設定はカテゴリごとに1件だけ有効であるべきだが、syncId でしか突き合わせて
+     * いないため、アプリの再インストール等でローカルDBが作り直されると同じカテゴリに
+     * 別 syncId の行が増えてしまう。取り込みのたびにカテゴリ単位で集約し、
+     * updatedAt が最新の1件だけを残す（同値なら syncId 順）。
+     */
+    private suspend fun dedupeQuotaSettings() {
+        val all = repository.allQuotaSettings.first().filter { !it.isDeleted }
+        val now = System.currentTimeMillis()
+
+        all.groupBy { it.categoryId }
+            .filterValues { it.size > 1 }
+            .forEach { (_, group) ->
+                val keep = group.maxWithOrNull(
+                    compareBy({ it.updatedAt }, { it.syncId })
+                ) ?: return@forEach
+                group.filter { it.id != keep.id }.forEach { stale ->
+                    repository.updateQuotaSetting(
+                        stale.copy(isDeleted = true, updatedAt = now)
+                    )
+                }
+            }
     }
 
     // ==================== 変換ヘルパー ====================

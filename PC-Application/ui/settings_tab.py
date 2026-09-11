@@ -1,11 +1,12 @@
 """設定タブ - カテゴリ編集、プリセット管理、データ管理"""
 # pyrefly: ignore [missing-import]
 import customtkinter as ctk
+import tkinter as tk
 from tkinter import messagebox, filedialog
 from data.models import Category, Preset, QuotaSetting, _now_millis, _new_sync_id
 from data.sync_file import load_sync_file
 from ui.dialog_utils import (parse_date, parse_amount, parse_day_of_month,
-                             make_error_label, setup_modal)
+                             make_error_label, setup_modal, theme_row_colors)
 from datetime import date
 import csv
 import os
@@ -123,8 +124,9 @@ class SettingsTab:
                           font=("", 13, "bold")).pack(anchor="w", padx=5, pady=(8, 2))
 
             categories = self.app.get_active_categories(cat_type)
+            row_bg, row_fg = theme_row_colors(self.cat_list_frame)
             for cat in categories:
-                row = ctk.CTkFrame(self.cat_list_frame, fg_color="transparent")
+                row = tk.Frame(self.cat_list_frame, bg=row_bg)
                 row.pack(fill="x", pady=1)
 
                 try:
@@ -133,15 +135,15 @@ class SettingsTab:
                 except ValueError:
                     cat_color = "#808080"
 
-                indicator = ctk.CTkFrame(row, width=6, height=16, fg_color=cat_color, corner_radius=3)
-                indicator.pack(side="left", padx=(5, 8))
+                tk.Frame(row, width=6, height=16, bg=cat_color).pack(side="left", padx=(5, 8))
 
-                ctk.CTkLabel(row, text=cat.name, font=("", 12), anchor="w").pack(
-                    side="left", padx=5, pady=2)
+                tk.Label(row, text=cat.name, font=("", 12), anchor="w",
+                          bg=row_bg, fg=row_fg).pack(side="left", padx=5, pady=2)
 
-                ctk.CTkButton(row, text="削除", width=50, height=25,
-                               fg_color="#555555", hover_color="#EF5350",
-                               command=lambda c=cat: self._delete_category(c)).pack(
+                tk.Button(row, text="削除", font=("", 10), width=5,
+                           bg="#555555", fg="#FFFFFF", activebackground="#EF5350",
+                           activeforeground="#FFFFFF", relief="flat", bd=0, cursor="hand2",
+                           command=lambda c=cat: self._delete_category(c)).pack(
                     side="right", padx=5, pady=2)
 
     def _add_category(self):
@@ -219,21 +221,21 @@ class SettingsTab:
         for widget in self.quota_list_frame.winfo_children():
             widget.destroy()
 
-        quotas = self.app.get_active_quota_settings()
         categories = self.app.get_active_categories("EXPENSE")
 
+        row_bg, row_fg = theme_row_colors(self.quota_list_frame)
         for cat in categories:
-            row = ctk.CTkFrame(self.quota_list_frame, fg_color="transparent")
+            row = tk.Frame(self.quota_list_frame, bg=row_bg)
             row.pack(fill="x", pady=1)
 
-            ctk.CTkLabel(row, text=cat.name, font=("", 12), anchor="w",
-                          width=100).pack(side="left", padx=5, pady=3)
+            tk.Label(row, text=cat.name, font=("", 12), anchor="w", width=13,
+                      bg=row_bg, fg=row_fg).pack(side="left", padx=5, pady=3)
 
-            quota = next((q for q in quotas if q.category_sync_id == cat.sync_id), None)
+            quota = self.app.get_quota_for_category(cat.sync_id)
             amount_text = f"¥{quota.amount:,}" if quota else "未設定"
 
-            ctk.CTkLabel(row, text=amount_text, font=("", 12),
-                          text_color="#4FC3F7" if quota else "#888888").pack(
+            tk.Label(row, text=amount_text, font=("", 12), bg=row_bg,
+                      fg="#4FC3F7" if quota else "#888888").pack(
                 side="left", padx=10, pady=3)
 
     def _show_month_selection(self, callback):
@@ -329,8 +331,9 @@ class SettingsTab:
             return
 
         today = date.today()
+        row_bg, row_fg = theme_row_colors(self.fc_list_frame)
         for fc in fc_settings:
-            row = ctk.CTkFrame(self.fc_list_frame, fg_color="transparent")
+            row = tk.Frame(self.fc_list_frame, bg=row_bg)
             row.pack(fill="x", pady=1)
 
             cat = self.app.get_category_by_sync_id(fc.category_sync_id)
@@ -354,31 +357,33 @@ class SettingsTab:
             if expired:
                 amount_color = "#888888"
 
-            text_frame = ctk.CTkFrame(row, fg_color="transparent")
+            text_frame = tk.Frame(row, bg=row_bg)
             text_frame.pack(side="left", fill="x", expand=True, padx=10, pady=3)
 
             title = f"[{cat_name}] {name}"
             if expired:
                 title += "（終了）"
-            ctk.CTkLabel(text_frame, text=title, font=("", 12), anchor="w",
-                          text_color="#888888" if expired else None).pack(fill="x")
-            ctk.CTkLabel(text_frame, text=f"毎月{fc.day_of_month}日 / 期間: {start} 〜 {end}",
-                          font=("", 11), text_color="#888888", anchor="w").pack(fill="x")
+            tk.Label(text_frame, text=title, font=("", 12), anchor="w",
+                      bg=row_bg, fg="#888888" if expired else row_fg).pack(fill="x")
+            tk.Label(text_frame, text=f"毎月{fc.day_of_month}日 / 期間: {start} 〜 {end}",
+                      font=("", 11), bg=row_bg, fg="#888888", anchor="w").pack(fill="x")
 
-            btn_frame = ctk.CTkFrame(row, fg_color="transparent")
+            btn_frame = tk.Frame(row, bg=row_bg)
             btn_frame.pack(side="right", padx=5, pady=3)
 
-            ctk.CTkLabel(btn_frame, text=f"{sign}¥{fc.amount:,}", width=100, anchor="e",
-                          font=("", 12, "bold"), text_color=amount_color).pack(
+            tk.Label(btn_frame, text=f"{sign}¥{fc.amount:,}", width=12, anchor="e",
+                      font=("", 12, "bold"), bg=row_bg, fg=amount_color).pack(
                 side="left", padx=(0, 10))
 
-            ctk.CTkButton(btn_frame, text="編集", width=40, height=25,
-                           fg_color="#555555", hover_color="#4FC3F7",
-                           command=lambda f=fc: self._edit_fixed_cost(f)).pack(side="left", padx=2)
+            tk.Button(btn_frame, text="編集", font=("", 10), width=4,
+                       bg="#555555", fg="#FFFFFF", activebackground="#4FC3F7",
+                       activeforeground="#FFFFFF", relief="flat", bd=0, cursor="hand2",
+                       command=lambda f=fc: self._edit_fixed_cost(f)).pack(side="left", padx=2)
 
-            ctk.CTkButton(btn_frame, text="削除", width=40, height=25,
-                           fg_color="#555555", hover_color="#EF5350",
-                           command=lambda f=fc: self._delete_fixed_cost(f)).pack(side="left", padx=2)
+            tk.Button(btn_frame, text="削除", font=("", 10), width=4,
+                       bg="#555555", fg="#FFFFFF", activebackground="#EF5350",
+                       activeforeground="#FFFFFF", relief="flat", bd=0, cursor="hand2",
+                       command=lambda f=fc: self._delete_fixed_cost(f)).pack(side="left", padx=2)
 
     def _find_fixed_cost(self, sync_id):
         """syncIdで定期設定を引き直す（バックグラウンド再読み込み対策）"""

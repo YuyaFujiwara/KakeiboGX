@@ -150,7 +150,9 @@ fun ReportScreen(
         LazyColumn(modifier = Modifier.fillMaxSize()) {
             items(typeCategories) { cat ->
                 val amount = categorySums[cat.id] ?: 0L
-                val quota = quotas.find { it.categoryId == cat.id }
+                // 重複がある場合に PC 側と同じ行を選ぶ（updatedAt が最新、同値なら syncId 順）
+                val quota = quotas.filter { it.categoryId == cat.id }
+                    .maxWithOrNull(compareBy({ it.updatedAt }, { it.syncId }))
                 
                 if (amount > 0 || (quota != null && quota.amount > 0)) {
                     var quotaText: String? = null

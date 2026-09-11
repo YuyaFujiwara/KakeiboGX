@@ -298,7 +298,8 @@ fun QuotaScreen(
     LaunchedEffect(quotas, categories) {
         if (inputValues.isEmpty() && categories.isNotEmpty()) {
             categories.filter { it.type == TransactionType.EXPENSE }.forEach { cat ->
-                val quota = quotas.find { it.categoryId == cat.id }
+                val quota = quotas.filter { it.categoryId == cat.id }
+                    .maxWithOrNull(compareBy({ it.updatedAt }, { it.syncId }))
                 if (quota != null && quota.amount > 0) {
                     inputValues[cat.id] = quota.amount.toString()
                 } else {
@@ -326,7 +327,8 @@ fun QuotaScreen(
                 var hasChanges = false
                 inputValues.forEach { (catId, amountStr) ->
                     val amt = amountStr.toLongOrNull() ?: 0L
-                    val existing = quotas.find { it.categoryId == catId }
+                    val existing = quotas.filter { it.categoryId == catId }
+                        .maxWithOrNull(compareBy({ it.updatedAt }, { it.syncId }))
                     if (existing != null) {
                         if (amt > 0) {
                             if (existing.amount != amt) {

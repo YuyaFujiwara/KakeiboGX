@@ -11,8 +11,13 @@ import config
 
 
 class App(ctk.CTk):
+    TAB_NAMES = ("入力", "カレンダー", "レポート", "設定")
+
     def __init__(self):
         super().__init__()
+        # データ更新後、まだ再描画していないタブの名前。
+        # 表示中のタブ以外は切り替え時にまとめて更新する。
+        self._dirty_tabs = set()
         self.title(config.APP_NAME)
         self.geometry(f"{config.WINDOW_WIDTH}x{config.WINDOW_HEIGHT}")
         self.minsize(900, 600)
@@ -85,13 +90,20 @@ class App(ctk.CTk):
 
     def _on_tab_changed(self):
         """タブが切り替わった時にデータを再描画"""
-        current = self.tabview.get()
-        if current == "カレンダー":
-            self.calendar_tab.refresh()
-        elif current == "レポート":
-            self.report_tab.refresh()
-        elif current == "設定":
-            self.settings_tab.refresh()
+        self._refresh_tab(self.tabview.get())
+
+    def _tab_widgets(self):
+        return dict(zip(self.TAB_NAMES, (self.input_tab, self.calendar_tab,
+                                          self.report_tab, self.settings_tab)))
+
+    def _refresh_tab(self, name, force=False):
+        """指定タブを再描画する。force=False なら未更新(dirty)のときだけ行う。"""
+        tab = self._tab_widgets().get(name)
+        if tab is None:
+            return
+        if force or name in self._dirty_tabs:
+            tab.refresh()
+            self._dirty_tabs.discard(name)
 
     def save_data(self):
         """データをJSONファイルに保存"""
@@ -99,6 +111,10 @@ class App(ctk.CTk):
         import os
         if os.path.exists(self.sync_file_path):
             self.last_sync_mtime = os.path.getmtime(self.sync_file_path)
+
+        # 変更したタブは自分で再描画するが、他のタブは表示が古くなるため
+        # dirty にしておき、切り替え時に更新する。
+        self._dirty_tabs.update(self.TAB_NAMES)
 
     def reload_data(self):
         """JSONファイルからデータを再読み込み"""
@@ -113,11 +129,13 @@ class App(ctk.CTk):
         self._refresh_all()
 
     def _refresh_all(self):
-        """全タブのデータを更新"""
-        self.input_tab.refresh()
-        self.calendar_tab.refresh()
-        self.report_tab.refresh()
-        self.settings_tab.refresh()
+        """全タブのデータを更新する。
+
+        全タブを即座に作り直すと実データ量で2秒近くかかるため、表示中のタブだけ
+        その場で更新し、残りは dirty として記録してタブ切り替え時に更新する。
+        """
+        self._dirty_tabs.update(self.TAB_NAMES)
+        self._refresh_tab(self.tabview.get())
 
     def _check_and_apply_fixed_costs(self):
         from datetime import date, timedelta
@@ -207,6 +225,20 @@ class App(ctk.CTk):
     def get_active_quota_settings(self):
         """削除されていない予算設定のリストを取得"""
         return [q for q in self.data.quota_settings if not q.is_deleted]
+
+    def get_quota_for_category(self, category_sync_id: str):
+        """カテゴリの予算設定を1件だけ返す。
+
+        同じカテゴリに複数の予算設定が存在しうる（アプリ再インストール等で
+        syncId違いの行が同期経由で増えることがある）ため、updatedAt が最新の
+        ものを採用する。同値の場合は syncId 順で決めることで、PC と Android で
+        必ず同じ行が選ばれるようにする。
+        """
+        candidates = [q for q in self.data.quota_settings
+                      if not q.is_deleted and q.category_sync_id == category_sync_id]
+        if not candidates:
+            return None
+        return max(candidates, key=lambda q: (q.updated_at, q.sync_id))
 
     def get_category_by_sync_id(self, sync_id: str):
         """syncIdからカテゴリを取得"""

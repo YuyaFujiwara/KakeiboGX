@@ -2,6 +2,7 @@
 # pyrefly: ignore [missing-import]
 import customtkinter as ctk
 from datetime import date
+import calendar
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib
@@ -166,10 +167,9 @@ class ReportTab:
             cat_totals[d.category_sync_id] = cat_totals.get(d.category_sync_id, 0) + d.amount
 
         # 未使用（支出0）でも予算(Quota)が設定されているカテゴリを表示リストに加える
-        quotas = {q.category_sync_id: q for q in self.app.get_active_quota_settings()}
         active_cats = self.app.get_active_categories(self.current_type)
         for cat in active_cats:
-            if cat.sync_id not in cat_totals and cat.sync_id in quotas:
+            if cat.sync_id not in cat_totals and self.app.get_quota_for_category(cat.sync_id):
                 cat_totals[cat.sync_id] = 0
 
         total_amount = sum(d.amount for d in target_data) # 全体のパーセント計算用には実際の支出合計を使う
@@ -188,7 +188,15 @@ class ReportTab:
         self._update_chart(report_items, total_amount)
 
         # リスト更新
-        self._update_list(report_items, total_amount)
+        # 「今日の目標」計算用に、今日のカテゴリ別支出を集計する
+        today = date.today()
+        today_str = today.isoformat()
+        today_by_cat = {}
+        for d in target_data:
+            if d.date == today_str:
+                today_by_cat[d.category_sync_id] = today_by_cat.get(d.category_sync_id, 0) + d.amount
+
+        self._update_list(report_items, total_amount, today_by_cat)
 
     def _update_chart(self, items, total):
         self.ax.clear()
@@ -224,13 +232,19 @@ class ReportTab:
         self.fig.set_facecolor('#2b2b2b')
         self.canvas.draw()
 
-    def _update_list(self, items, total_amount):
+    def _update_list(self, items, total_amount, today_by_cat=None):
         # クリア
         for widget in self.list_frame.winfo_children():
             widget.destroy()
 
-        # 予算設定の取得
-        quotas = {q.category_sync_id: q for q in self.app.get_active_quota_settings()}
+        # 表示中の月が今月の場合だけ、月末までの残日数（当日含む）を求める。
+        # 過去・未来の月では日割りの目標を出しても意味がないため0にする。
+        today = date.today()
+        if today.year == self.current_year and today.month == self.current_month:
+            _, last_day = calendar.monthrange(self.current_year, self.current_month)
+            days_left = last_day - today.day + 1
+        else:
+            days_left = 0
 
         for cat, amount, pct in items:
             row_frame = ctk.CTkFrame(self.list_frame, fg_color="#333333", corner_radius=8)
@@ -252,14 +266,30 @@ class ReportTab:
 
             ctk.CTkLabel(info_frame, text=cat.name, font=("", 14, "bold"), anchor="w").pack(fill="x")
             
-            quota = quotas.get(cat.sync_id)
+            quota = self.app.get_quota_for_category(cat.sync_id)
             if quota and quota.amount > 0:
                 remaining = quota.amount - amount
+                today_amount = (today_by_cat or {}).get(cat.sync_id, 0)
+
+                # 日割りの目標は「今月を表示しているとき」だけ意味を持つ
+                daily_part = ""
+                if days_left > 0:
+                    spent_before_today = amount - today_amount
+                    remaining_before_today = quota.amount - spent_before_today
+                    daily_target = (remaining_before_today // days_left
+                                     if remaining_before_today > 0 else 0)
+                    if remaining >= 0:
+                        today_remaining = max(daily_target - today_amount, 0)
+                        daily_part = (f" | 今日の目標 ¥{daily_target:,}"
+                                       f" (使用 ¥{today_amount:,}) あと¥{today_remaining:,}")
+                    else:
+                        daily_part = f" | 今日 ¥{today_amount:,}"
+
                 if remaining >= 0:
-                    q_text = f"予算: ¥{quota.amount:,} | 残額: ¥{remaining:,}"
+                    q_text = f"残 ¥{remaining:,} / ¥{quota.amount:,}{daily_part}"
                     q_color = "#AAAAAA"
                 else:
-                    q_text = f"予算: ¥{quota.amount:,} | 超過: ¥{abs(remaining):,}"
+                    q_text = f"超過 ¥{abs(remaining):,} / ¥{quota.amount:,}{daily_part}"
                     q_color = "#EF5350"
                 ctk.CTkLabel(info_frame, text=q_text, font=("", 11), text_color=q_color, anchor="w").pack(fill="x")
 
